@@ -1,14 +1,16 @@
 import React from 'react';
+import { Pencil } from 'lucide-react';
 
 const TYPE_ICONS = { charging: '⚡', tolls: '🛣️', maintenance: '🔧', insurance: '🛡️', other: '📋' };
 
-const INTERVAL_CONFIG = {
-  monthly:   { label: '每月',  color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400' },
-  quarterly: { label: '每季',  color: 'bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400' },
-  yearly:    { label: '每年',  color: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400' },
-};
+function getIntervalLabel(item) {
+  if (item.intervalMonths) return `每 ${item.intervalMonths} 個月`;
+  return { monthly: '每月', quarterly: '每季', yearly: '每年' }[item.interval] ?? '每月';
+}
 
-export default function RecurringList({ items, onDelete, onToggle }) {
+const INTERVAL_COLOR = 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400';
+
+export default function RecurringList({ items, onDelete, onToggle, onEdit }) {
   if (items.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400 dark:text-neutral-600">
@@ -24,7 +26,6 @@ export default function RecurringList({ items, onDelete, onToggle }) {
   return (
     <div className="space-y-2">
       {items.map(item => {
-        const ic = INTERVAL_CONFIG[item.interval] ?? INTERVAL_CONFIG.monthly;
         const isDue = item.active && item.nextDue <= today;
 
         return (
@@ -47,8 +48,8 @@ export default function RecurringList({ items, onDelete, onToggle }) {
                 <span className={`text-sm font-medium ${item.active ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-600'}`}>
                   {item.vendor || item.type}
                 </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${ic.color}`}>
-                  {ic.label}
+                <span className={`text-xs px-2 py-0.5 rounded-full ${INTERVAL_COLOR}`}>
+                  {getIntervalLabel(item)}
                 </span>
                 {isDue && (
                   <span className="text-xs bg-tesla/10 text-tesla px-2 py-0.5 rounded-full">待確認</span>
@@ -68,6 +69,14 @@ export default function RecurringList({ items, onDelete, onToggle }) {
               <span className="text-sm font-bold text-gray-900 dark:text-white">
                 ${(item.cost ?? 0).toLocaleString()}
               </span>
+
+              <button
+                onClick={() => onEdit(item)}
+                className="text-gray-400 dark:text-neutral-600 hover:text-tesla transition-colors p-1"
+                title="編輯"
+              >
+                <Pencil size={14} />
+              </button>
 
               {/* Active toggle */}
               <button

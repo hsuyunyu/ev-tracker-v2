@@ -8,11 +8,6 @@ const TYPE_OPTIONS = [
   { value: 'other',       label: '📋 其他' },
 ];
 
-const INTERVAL_OPTIONS = [
-  { value: 'monthly',   label: '每月' },
-  { value: 'quarterly', label: '每季（3個月）' },
-  { value: 'yearly',    label: '每年' },
-];
 
 const VENDOR_PRESETS = {
   charging:    ['DARA', 'Tesla', 'iCharging', 'EVOASIS', 'U-power', 'TAIL', '星舟快充'],
@@ -33,12 +28,21 @@ function Field({ label, children }) {
   );
 }
 
-export default function AddRecurringModal({ onClose, onSave, definedUsers, defaultVehicleId }) {
+export default function AddRecurringModal({ onClose, onSave, definedUsers, defaultVehicleId, editItem }) {
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({
+  const isEdit = !!editItem;
+  const [form, setForm] = useState(() => isEdit ? {
+    type: editItem.type, vendor: editItem.vendor ?? '', cost: String(editItem.cost ?? ''),
+    kwh: String(editItem.kwh ?? ''), user: editItem.user,
+    intervalMonths: editItem.intervalMonths ||
+      ({ monthly: 1, quarterly: 3, yearly: 12 }[editItem.interval] ?? 1),
+    nextDue: editItem.nextDue,
+    note: editItem.note ?? '', vehicleId: editItem.vehicleId ?? defaultVehicleId,
+    active: editItem.active,
+  } : {
     type: 'other', vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '所有人',
-    interval: 'monthly', nextDue: today,
+    intervalMonths: 1, nextDue: today,
     note: '', vehicleId: defaultVehicleId,
     active: true,
   });
@@ -58,7 +62,7 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
       <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-neutral-800">
         <div className="p-5">
           <div className="flex justify-between items-center mb-5">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">新增週期項目</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{isEdit ? '編輯週期項目' : '新增週期項目'}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200 text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800">×</button>
           </div>
 
@@ -102,9 +106,16 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
             </Field>
 
             <Field label="週期">
-              <select value={form.interval} onChange={e => set('interval', e.target.value)} className={inputCls}>
-                {INTERVAL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">每</span>
+                <input
+                  type="number" min="1" max="120"
+                  value={form.intervalMonths}
+                  onChange={e => set('intervalMonths', Number(e.target.value) || 1)}
+                  className={inputCls + ' w-20'}
+                />
+                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">個月</span>
+              </div>
             </Field>
 
             <Field label="下次到期日">
@@ -119,7 +130,7 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
           <div className="flex gap-3 mt-6">
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-600 dark:text-neutral-400 hover:bg-gray-50 dark:hover:bg-neutral-800 text-sm">取消</button>
             <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-tesla hover:bg-tesla-hover text-white rounded-xl font-medium text-sm disabled:opacity-60">
-              {saving ? '儲存中...' : '新增'}
+              {saving ? '儲存中...' : isEdit ? '更新' : '新增'}
             </button>
           </div>
         </div>

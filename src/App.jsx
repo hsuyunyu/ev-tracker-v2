@@ -14,12 +14,13 @@ import AddRecordModal from './components/AddRecordModal';
 import DueBanner from './components/DueBanner';
 import RecurringList from './components/RecurringList';
 import AddRecurringModal from './components/AddRecurringModal';
+import AnalyticsPage from './components/AnalyticsPage';
 
-function calculateNextDue(currentDue, interval) {
+function calculateNextDue(currentDue, item) {
   const d = new Date(currentDue);
-  if (interval === 'monthly')   d.setMonth(d.getMonth() + 1);
-  if (interval === 'quarterly') d.setMonth(d.getMonth() + 3);
-  if (interval === 'yearly')    d.setFullYear(d.getFullYear() + 1);
+  const months = item.intervalMonths ||
+    { monthly: 1, quarterly: 3, yearly: 12 }[item.interval] || 1;
+  d.setMonth(d.getMonth() + months);
   return d.toISOString().slice(0, 10);
 }
 
@@ -44,6 +45,7 @@ export default function App() {
   const [filters,   setFilters]  = useState({ type: 'all', user: 'all', month: '' });
   const [showAdd,   setShowAdd]  = useState(false);
   const [showAddRecurring, setShowAddRecurring] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef(null);
 
@@ -134,13 +136,13 @@ export default function App() {
       date: new Date().toISOString().slice(0, 16),
     });
     await updateDoc(doc(db, 'recurring', item.id), {
-      nextDue: calculateNextDue(item.nextDue, item.interval),
+      nextDue: calculateNextDue(item.nextDue, item),
     });
   };
 
   const handleSkipRecurring = async (item) => {
     await updateDoc(doc(db, 'recurring', item.id), {
-      nextDue: calculateNextDue(item.nextDue, item.interval),
+      nextDue: calculateNextDue(item.nextDue, item),
     });
   };
 
@@ -156,6 +158,12 @@ export default function App() {
   const handleAddRecurring = async (formData) => {
     await addDoc(collection(db, 'recurring'), formData);
     setShowAddRecurring(false);
+  };
+
+  const handleEditRecurring = async (formData) => {
+    const { id, ...data } = editingRecurring;
+    await updateDoc(doc(db, 'recurring', id), { ...data, ...formData });
+    setEditingRecurring(null);
   };
 
   const handleImport = async (e) => {
@@ -223,6 +231,7 @@ export default function App() {
           {[
             { key: 'records',   label: '費用記錄' },
             { key: 'recurring', label: `週期項目${dueItems.length > 0 ? ` (${dueItems.length})` : ''}` },
+            { key: 'analytics', label: '數據分析' },
           ].map(t => (
             <button
               key={t.key}
@@ -278,10 +287,19 @@ export default function App() {
               items={recurring}
               onDelete={handleDeleteRecurring}
               onToggle={handleToggleRecurring}
+              onEdit={item => setEditingRecurring(item)}
             />
           </>
         )}
       </main>
+
+        {tab === 'analytics' && (
+          <AnalyticsPage
+            records={records}
+            darkMode={darkMode}
+            definedUsers={settings.definedUsers}
+          />
+        )}
 
       {showAdd && (
         <AddRecordModal
@@ -298,6 +316,16 @@ export default function App() {
           onSave={handleAddRecurring}
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
+        />
+      )}
+
+      {editingRecurring && (
+        <AddRecurringModal
+          onClose={() => setEditingRecurring(null)}
+          onSave={handleEditRecurring}
+          definedUsers={settings.definedUsers}
+          defaultVehicleId={defaultVehicleId}
+          editItem={editingRecurring}
         />
       )}
     </div>
