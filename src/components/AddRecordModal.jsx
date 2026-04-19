@@ -28,9 +28,16 @@ function Field({ label, children }) {
   );
 }
 
-export default function AddRecordModal({ onClose, onSave, definedUsers, defaultVehicleId }) {
+export default function AddRecordModal({ onClose, onSave, definedUsers, defaultVehicleId, editItem }) {
   const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
-  const [form, setForm] = useState({
+  const isEdit = !!editItem;
+  const [form, setForm] = useState(() => isEdit ? {
+    type: editItem.type, date: editItem.date, vendor: editItem.vendor ?? '',
+    cost: String(editItem.cost ?? ''), kwh: String(editItem.kwh ?? ''),
+    user: editItem.user, mileage: editItem.mileage ?? '',
+    note: editItem.note ?? '', expiryDate: editItem.expiryDate ?? '',
+    vehicleId: editItem.vehicleId ?? defaultVehicleId,
+  } : {
     type: 'charging', date: now, vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '所有人', mileage: '', note: '', expiryDate: '',
     vehicleId: defaultVehicleId,
@@ -50,7 +57,7 @@ export default function AddRecordModal({ onClose, onSave, definedUsers, defaultV
       <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-neutral-800">
         <div className="p-5">
           <div className="flex justify-between items-center mb-5">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">新增記錄</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{isEdit ? '編輯記錄' : '新增記錄'}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200 text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800">×</button>
           </div>
 
@@ -115,7 +122,7 @@ export default function AddRecordModal({ onClose, onSave, definedUsers, defaultV
           <div className="flex gap-3 mt-6">
             <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-600 dark:text-neutral-400 hover:bg-gray-50 dark:hover:bg-neutral-800 text-sm">取消</button>
             <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 bg-tesla hover:bg-tesla-hover text-white rounded-xl font-medium text-sm disabled:opacity-60">
-              {saving ? '儲存中...' : '儲存'}
+              {saving ? '儲存中...' : isEdit ? '更新' : '儲存'}
             </button>
           </div>
         </div>

@@ -48,6 +48,7 @@ export default function App() {
   const [tab,       setTab]      = useState('records');
   const [filters,   setFilters]  = useState({ type: 'all', user: 'all', month: '' });
   const [showAdd,   setShowAdd]  = useState(false);
+  const [editingRecord,    setEditingRecord]    = useState(null);
   const [showAddRecurring, setShowAddRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -124,6 +125,11 @@ export default function App() {
   const handleAdd = async (formData) => {
     await addDoc(collection(db, 'records'), formData);
     setShowAdd(false);
+  };
+
+  const handleEditRecord = async (formData) => {
+    await updateDoc(doc(db, 'records', editingRecord.id), formData);
+    setEditingRecord(null);
   };
 
   const handleConfirmRecurring = async (item) => {
@@ -273,7 +279,7 @@ export default function App() {
                 + 新增記錄
               </button>
             </div>
-            <RecordList records={filteredRecords} onDelete={handleDelete} />
+            <RecordList records={filteredRecords} onDelete={handleDelete} onEdit={r => setEditingRecord(r)} />
           </>
         )}
 
@@ -311,6 +317,16 @@ export default function App() {
           onSave={handleAdd}
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
+        />
+      )}
+
+      {editingRecord && (
+        <AddRecordModal
+          onClose={() => setEditingRecord(null)}
+          onSave={handleEditRecord}
+          definedUsers={settings.definedUsers}
+          defaultVehicleId={defaultVehicleId}
+          editItem={editingRecord}
         />
       )}
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
+import { Pencil } from 'lucide-react';
 
 const TYPE_CONFIG = {
   charging:    { label: '充電',   icon: '⚡', light: 'bg-blue-50 text-blue-600',    dark: 'dark:bg-blue-950 dark:text-blue-400' },
@@ -20,7 +21,7 @@ function formatDate(dateStr) {
   catch { return dateStr?.slice(0, 10) ?? ''; }
 }
 
-export default function RecordList({ records, onDelete }) {
+export default function RecordList({ records, onDelete, onEdit }) {
   if (records.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400 dark:text-neutral-600">
@@ -75,8 +76,15 @@ export default function RecordList({ records, onDelete }) {
                 ${(record.cost ?? 0).toLocaleString()}
               </span>
               <button
+                onClick={() => onEdit(record)}
+                className="text-gray-300 dark:text-neutral-700 hover:text-tesla transition-colors p-1"
+                title="編輯"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
                 onClick={() => onDelete(record.id)}
-                className="text-gray-300 dark:text-neutral-700 hover:text-tesla transition-colors text-xl leading-none ml-1"
+                className="text-gray-300 dark:text-neutral-700 hover:text-tesla transition-colors text-xl leading-none"
               >
                 ×
               </button>

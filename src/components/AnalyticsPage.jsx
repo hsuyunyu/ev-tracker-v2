@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useTransition } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -44,10 +44,17 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
     return d.toISOString().slice(0, 10);
   };
 
-  const [startDate,   setStartDate]   = useState(sixMonthsAgo);
-  const [endDate,     setEndDate]     = useState(todayStr);
-  const [filterTypes, setFilterTypes] = useState([]);   // [] = all
-  const [filterUsers, setFilterUsers] = useState([]);   // [] = all
+  const [isPending, startTransition] = useTransition();
+
+  const [startDate,       setStartDateRaw]   = useState(sixMonthsAgo);
+  const [endDate,         setEndDateRaw]     = useState(todayStr);
+  const [filterTypes,     setFilterTypesRaw] = useState([]);
+  const [filterUsers,     setFilterUsersRaw] = useState([]);
+
+  const setStartDate   = v => startTransition(() => setStartDateRaw(v));
+  const setEndDate     = v => startTransition(() => setEndDateRaw(v));
+  const setFilterTypes = v => startTransition(() => setFilterTypesRaw(v));
+  const setFilterUsers = v => startTransition(() => setFilterUsersRaw(v));
 
   const userOptions = useMemo(() =>
     definedUsers.map(u => ({ value: u, label: u }))
@@ -130,8 +137,9 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
             placeholder="使用者"
           />
 
-          <span className="ml-auto text-sm font-bold text-tesla">
-            總計 ${totalCost.toLocaleString()}
+          <span className="ml-auto flex items-center gap-2">
+            {isPending && <span className="text-xs text-gray-400 dark:text-neutral-500">更新中…</span>}
+            <span className="text-sm font-bold text-tesla">總計 ${totalCost.toLocaleString()}</span>
           </span>
         </div>
       </div>
