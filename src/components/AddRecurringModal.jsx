@@ -36,13 +36,14 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
     kwh: String(editItem.kwh ?? ''), user: editItem.user,
     intervalMonths: editItem.intervalMonths ||
       ({ monthly: 1, quarterly: 3, yearly: 12 }[editItem.interval] ?? 1),
+    dayOfMonth: editItem.dayOfMonth ?? '',
     nextDue: editItem.nextDue,
     note: editItem.note ?? '', vehicleId: editItem.vehicleId ?? defaultVehicleId,
     active: editItem.active,
   } : {
     type: 'other', vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '所有人',
-    intervalMonths: 1, nextDue: today,
+    intervalMonths: 1, dayOfMonth: '', nextDue: today,
     note: '', vehicleId: defaultVehicleId,
     active: true,
   });
@@ -106,7 +107,7 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
             </Field>
 
             <Field label="週期">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">每</span>
                 <input
                   type="number" min="1" max="120"
@@ -114,7 +115,15 @@ export default function AddRecurringModal({ onClose, onSave, definedUsers, defau
                   onChange={e => set('intervalMonths', Number(e.target.value) || 1)}
                   className={inputCls + ' w-20'}
                 />
-                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">個月</span>
+                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">個月，</span>
+                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">每月</span>
+                <input
+                  type="number" min="1" max="28" placeholder="—"
+                  value={form.dayOfMonth}
+                  onChange={e => set('dayOfMonth', e.target.value ? Number(e.target.value) : '')}
+                  className={inputCls + ' w-20'}
+                />
+                <span className="text-sm text-gray-500 dark:text-neutral-400 shrink-0">日（選填）</span>
               </div>
             </Field>
 

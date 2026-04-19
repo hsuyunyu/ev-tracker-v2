@@ -3,6 +3,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import MultiSelect from './MultiSelect';
 
 const TYPE_COLORS = {
   charging:    '#3b82f6',
@@ -19,7 +20,7 @@ const TYPE_LABELS = {
 
 const TYPES = Object.keys(TYPE_LABELS);
 
-const inputCls = 'text-sm border border-gray-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-neutral-300 bg-white dark:bg-neutral-800';
+const TYPE_OPTIONS  = TYPES.map(t => ({ value: t, label: TYPE_LABELS[t] }));
 
 function Card({ title, children }) {
   return (
@@ -35,24 +36,31 @@ function Empty() {
 }
 
 export default function AnalyticsPage({ records, darkMode, definedUsers }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
   const sixMonthsAgo = () => {
     const d = new Date();
     d.setMonth(d.getMonth() - 5);
-    return d.toISOString().slice(0, 7);
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
   };
 
-  const [startMonth, setStartMonth] = useState(sixMonthsAgo);
-  const [endMonth,   setEndMonth]   = useState(() => new Date().toISOString().slice(0, 7));
-  const [filterUser, setFilterUser] = useState('all');
-  const [filterType, setFilterType] = useState('all');
+  const [startDate,   setStartDate]   = useState(sixMonthsAgo);
+  const [endDate,     setEndDate]     = useState(todayStr);
+  const [filterTypes, setFilterTypes] = useState([]);   // [] = all
+  const [filterUsers, setFilterUsers] = useState([]);   // [] = all
+
+  const userOptions = useMemo(() =>
+    definedUsers.map(u => ({ value: u, label: u }))
+  , [definedUsers]);
 
   const filtered = useMemo(() => records.filter(r => {
-    const m = r.date?.slice(0, 7) ?? '';
-    if (m < startMonth || m > endMonth) return false;
-    if (filterUser !== 'all' && r.user !== filterUser) return false;
-    if (filterType !== 'all' && r.type !== filterType) return false;
+    const d = r.date?.slice(0, 10) ?? '';
+    if (startDate && d < startDate) return false;
+    if (endDate   && d > endDate)   return false;
+    if (filterTypes.length > 0 && !filterTypes.includes(r.type)) return false;
+    if (filterUsers.length > 0 && !filterUsers.includes(r.user)) return false;
     return true;
-  }), [records, startMonth, endMonth, filterUser, filterType]);
+  }), [records, startDate, endDate, filterTypes, filterUsers]);
 
   const monthlyData = useMemo(() => {
     const map = {};
@@ -93,25 +101,35 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
     fontSize: 12,
   };
 
+  const inputCls = 'text-sm border border-gray-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-neutral-300 bg-white dark:bg-neutral-800';
+
   return (
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
         <div className="flex flex-wrap gap-3 items-center">
+          {/* Date range */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-neutral-400">從</span>
-            <input type="month" value={startMonth} onChange={e => setStartMonth(e.target.value)} className={inputCls} />
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
             <span className="text-xs text-gray-500 dark:text-neutral-400">到</span>
-            <input type="month" value={endMonth} onChange={e => setEndMonth(e.target.value)} className={inputCls} />
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
           </div>
-          <select value={filterUser} onChange={e => setFilterUser(e.target.value)} className={inputCls}>
-            <option value="all">所有使用者</option>
-            {definedUsers.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-          <select value={filterType} onChange={e => setFilterType(e.target.value)} className={inputCls}>
-            <option value="all">所有類別</option>
-            {TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-          </select>
+
+          <MultiSelect
+            options={TYPE_OPTIONS}
+            value={filterTypes}
+            onChange={setFilterTypes}
+            placeholder="類別"
+          />
+
+          <MultiSelect
+            options={userOptions}
+            value={filterUsers}
+            onChange={setFilterUsers}
+            placeholder="使用者"
+          />
+
           <span className="ml-auto text-sm font-bold text-tesla">
             總計 ${totalCost.toLocaleString()}
           </span>
@@ -143,7 +161,8 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
           {breakdownData.length === 0 ? <Empty /> : (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={breakdownData} cx="50%" cy="50%" innerRadius={55} outerRadius={82}
+                <Pie data={breakdownData} cx="50%" cy="50%"
+                  innerRadius={55} outerRadius={82}
                   dataKey="value" paddingAngle={3}>
                   {breakdownData.map(e => (
                     <Cell key={e.type} fill={TYPE_COLORS[e.type] ?? '#6b7280'} />

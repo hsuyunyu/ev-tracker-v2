@@ -21,6 +21,10 @@ function calculateNextDue(currentDue, item) {
   const months = item.intervalMonths ||
     { monthly: 1, quarterly: 3, yearly: 12 }[item.interval] || 1;
   d.setMonth(d.getMonth() + months);
+  if (item.dayOfMonth) {
+    const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(item.dayOfMonth, maxDay));
+  }
   return d.toISOString().slice(0, 10);
 }
 

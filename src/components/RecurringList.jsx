@@ -4,8 +4,10 @@ import { Pencil } from 'lucide-react';
 const TYPE_ICONS = { charging: '⚡', tolls: '🛣️', maintenance: '🔧', insurance: '🛡️', other: '📋' };
 
 function getIntervalLabel(item) {
-  if (item.intervalMonths) return `每 ${item.intervalMonths} 個月`;
-  return { monthly: '每月', quarterly: '每季', yearly: '每年' }[item.interval] ?? '每月';
+  const months = item.intervalMonths ||
+    { monthly: 1, quarterly: 3, yearly: 12 }[item.interval] || 1;
+  const dayStr = item.dayOfMonth ? `，${item.dayOfMonth} 日` : '';
+  return `每 ${months} 個月${dayStr}`;
 }
 
 const INTERVAL_COLOR = 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400';
