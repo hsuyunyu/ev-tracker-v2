@@ -4,8 +4,13 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        tesla: { DEFAULT: '#E82127', hover: '#c41a1f' },
+      },
+    },
   },
   plugins: [],
 }
