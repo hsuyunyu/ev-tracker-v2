@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-
-const TYPE_OPTIONS = [
-  { value: 'charging',    label: '⚡ 充電' },
-  { value: 'tolls',       label: '🛣️ 過路費' },
-  { value: 'maintenance', label: '🔧 保養維修' },
-  { value: 'insurance',   label: '🛡️ 保險' },
-  { value: 'other',       label: '📋 其他' },
-];
+import { resolveTypes } from '../typeConfig';
 
 const VENDOR_PRESETS = {
   charging:    ['DARA', 'Tesla', 'iCharging', 'EVOASIS', 'U-power', 'TAIL', '星舟快充', '創久大員', '創久（聯發）'],
@@ -28,7 +21,8 @@ function Field({ label, children }) {
   );
 }
 
-export default function AddRecordModal({ onClose, onSave, definedUsers, defaultVehicleId, editItem }) {
+export default function AddRecordModal({ onClose, onSave, definedUsers, defaultVehicleId, editItem, definedTypes }) {
+  const typeOptions = resolveTypes(definedTypes);
   const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
   const isEdit = !!editItem;
   const [form, setForm] = useState(() => isEdit ? {
@@ -64,14 +58,14 @@ export default function AddRecordModal({ onClose, onSave, definedUsers, defaultV
           <div className="space-y-4">
             <Field label="類型">
               <div className="flex flex-wrap gap-2">
-                {TYPE_OPTIONS.map(t => (
-                  <button key={t.value} type="button" onClick={() => set('type', t.value)}
+                {typeOptions.map(t => (
+                  <button key={t.id} type="button" onClick={() => set('type', t.id)}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                      form.type === t.value
+                      form.type === t.id
                         ? 'bg-tesla text-white'
                         : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-400 hover:bg-gray-200 dark:hover:bg-neutral-700'
                     }`}>
-                    {t.label}
+                    {t.icon} {t.label}
                   </button>
                 ))}
               </div>
@@ -87,6 +81,7 @@ export default function AddRecordModal({ onClose, onSave, definedUsers, defaultV
                 {(VENDOR_PRESETS[form.type] ?? []).map(v => <option key={v} value={v} />)}
               </datalist>
             </Field>
+
 
             <Field label="費用（元）">
               <input type="number" min="0" value={form.cost} onChange={e => set('cost', e.target.value)} placeholder="0" className={inputCls} />

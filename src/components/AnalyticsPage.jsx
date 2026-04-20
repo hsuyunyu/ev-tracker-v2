@@ -1,26 +1,10 @@
-import React, { useState, useMemo, useTransition } from 'react';
+import React, { useState, useMemo, useDeferredValue } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import MultiSelect from './MultiSelect';
-
-const TYPE_COLORS = {
-  charging:    '#3b82f6',
-  tolls:       '#f97316',
-  maintenance: '#eab308',
-  insurance:   '#a855f7',
-  other:       '#6b7280',
-};
-
-const TYPE_LABELS = {
-  charging: '充電', tolls: '過路費', maintenance: '保養',
-  insurance: '保險', other: '其他',
-};
-
-const TYPES = Object.keys(TYPE_LABELS);
-
-const TYPE_OPTIONS  = TYPES.map(t => ({ value: t, label: TYPE_LABELS[t] }));
+import { resolveTypes } from '../typeConfig';
 
 function Card({ title, children }) {
   return (
@@ -35,7 +19,13 @@ function Empty() {
   return <div className="text-center py-10 text-gray-400 dark:text-neutral-600 text-sm">無資料</div>;
 }
 
-export default function AnalyticsPage({ records, darkMode, definedUsers }) {
+export default function AnalyticsPage({ records, darkMode, definedUsers, definedTypes }) {
+  const types = resolveTypes(definedTypes);
+  const TYPE_LABELS = Object.fromEntries(types.map(t => [t.id, t.label]));
+  const TYPE_COLORS = Object.fromEntries(types.map(t => [t.id, t.color]));
+  const TYPE_IDS = types.map(t => t.id);
+  const TYPE_OPTIONS = types.map(t => ({ value: t.id, label: `${t.icon} ${t.label}` }));
+
   const todayStr = new Date().toISOString().slice(0, 10);
   const sixMonthsAgo = () => {
     const d = new Date();
@@ -44,17 +34,15 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
     return d.toISOString().slice(0, 10);
   };
 
-  const [isPending, startTransition] = useTransition();
+  const [startDate,   setStartDate]   = useState(sixMonthsAgo);
+  const [endDate,     setEndDate]     = useState(todayStr);
+  const [filterTypes, setFilterTypes] = useState([]);
+  const [filterUsers, setFilterUsers] = useState([]);
 
-  const [startDate,       setStartDateRaw]   = useState(sixMonthsAgo);
-  const [endDate,         setEndDateRaw]     = useState(todayStr);
-  const [filterTypes,     setFilterTypesRaw] = useState([]);
-  const [filterUsers,     setFilterUsersRaw] = useState([]);
-
-  const setStartDate   = v => startTransition(() => setStartDateRaw(v));
-  const setEndDate     = v => startTransition(() => setEndDateRaw(v));
-  const setFilterTypes = v => startTransition(() => setFilterTypesRaw(v));
-  const setFilterUsers = v => startTransition(() => setFilterUsersRaw(v));
+  const deferredStart = useDeferredValue(startDate);
+  const deferredEnd   = useDeferredValue(endDate);
+  const deferredTypes = useDeferredValue(filterTypes);
+  const deferredUsers = useDeferredValue(filterUsers);
 
   const userOptions = useMemo(() =>
     definedUsers.map(u => ({ value: u, label: u }))
@@ -62,23 +50,27 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
 
   const filtered = useMemo(() => records.filter(r => {
     const d = r.date?.slice(0, 10) ?? '';
-    if (startDate && d < startDate) return false;
-    if (endDate   && d > endDate)   return false;
-    if (filterTypes.length > 0 && !filterTypes.includes(r.type)) return false;
-    if (filterUsers.length > 0 && !filterUsers.includes(r.user)) return false;
+    if (deferredStart && d < deferredStart) return false;
+    if (deferredEnd   && d > deferredEnd)   return false;
+    if (deferredTypes.length > 0 && !deferredTypes.includes(r.type)) return false;
+    if (deferredUsers.length > 0 && !deferredUsers.includes(r.user)) return false;
     return true;
-  }), [records, startDate, endDate, filterTypes, filterUsers]);
+  }), [records, deferredStart, deferredEnd, deferredTypes, deferredUsers]);
 
   const monthlyData = useMemo(() => {
     const map = {};
     filtered.forEach(r => {
       const m = r.date?.slice(0, 7);
       if (!m) return;
-      if (!map[m]) map[m] = { month: m, charging: 0, tolls: 0, maintenance: 0, insurance: 0, other: 0 };
-      map[m][r.type] = (map[m][r.type] || 0) + (r.cost || 0);
+      if (!map[m]) {
+        map[m] = { month: m };
+        TYPE_IDS.forEach(id => { map[m][id] = 0; });
+      }
+      if (map[m][r.type] !== undefined) map[m][r.type] += (r.cost || 0);
+      else map[m][r.type] = (r.cost || 0);
     });
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
-  }, [filtered]);
+  }, [filtered, TYPE_IDS]);
 
   const mileageData = useMemo(() => records
     .filter(r => r.mileage && !isNaN(Number(r.mileage)))
@@ -92,7 +84,7 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
     return Object.entries(map)
       .filter(([, v]) => v > 0)
       .map(([type, value]) => ({ name: TYPE_LABELS[type] ?? type, value, type }));
-  }, [filtered]);
+  }, [filtered, TYPE_LABELS]);
 
   const totalCost = filtered.reduce((s, r) => s + (r.cost || 0), 0);
 
@@ -115,7 +107,6 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
       {/* Filters */}
       <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
         <div className="flex flex-wrap gap-3 items-center">
-          {/* Date range */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-neutral-400">從</span>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
@@ -137,10 +128,7 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
             placeholder="使用者"
           />
 
-          <span className="ml-auto flex items-center gap-2">
-            {isPending && <span className="text-xs text-gray-400 dark:text-neutral-500">更新中…</span>}
-            <span className="text-sm font-bold text-tesla">總計 ${totalCost.toLocaleString()}</span>
-          </span>
+          <span className="ml-auto text-sm font-bold text-tesla">總計 ${totalCost.toLocaleString()}</span>
         </div>
       </div>
 
@@ -154,9 +142,9 @@ export default function AnalyticsPage({ records, darkMode, definedUsers }) {
               <YAxis tickFormatter={v => `$${v}`} tick={{ fontSize: 11, fill: g.text }} axisLine={false} tickLine={false} width={58} />
               <Tooltip contentStyle={ttStyle} formatter={(v, name) => [`$${Number(v).toLocaleString()}`, TYPE_LABELS[name] ?? name]} />
               <Legend formatter={name => TYPE_LABELS[name] ?? name} wrapperStyle={{ fontSize: 12 }} />
-              {TYPES.map((t, i) => (
-                <Bar key={t} dataKey={t} stackId="a" fill={TYPE_COLORS[t]}
-                  radius={i === TYPES.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
+              {TYPE_IDS.map((id, i) => (
+                <Bar key={id} dataKey={id} stackId="a" fill={TYPE_COLORS[id]}
+                  radius={i === TYPE_IDS.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]} />
               ))}
             </BarChart>
           </ResponsiveContainer>

@@ -15,6 +15,7 @@ import DueBanner from './components/DueBanner';
 import RecurringList from './components/RecurringList';
 import AddRecurringModal from './components/AddRecurringModal';
 import AnalyticsPage from './components/AnalyticsPage';
+import SettingsPage from './components/SettingsPage';
 
 function calculateNextDue(currentDue, item) {
   const d = new Date(currentDue);
@@ -43,6 +44,7 @@ export default function App() {
   const [settings,  setSettings]  = useState({
     definedUsers: ['所有人', 'Rose', '1+'],
     defaultVehicleId: '',
+    definedTypes: [],
   });
 
   const [tab,       setTab]      = useState('records');
@@ -156,6 +158,35 @@ export default function App() {
     });
   };
 
+  const handleUpdateTypes = async (newTypes) => {
+    const updated = { ...settings, definedTypes: newTypes };
+    await updateDoc(doc(db, 'settings', 'config'), updated);
+    setSettings(updated);
+  };
+
+  const handleDeleteType = async (typeId, hasRecords) => {
+    if (hasRecords) {
+      const affected = records.filter(r => r.type === typeId);
+      for (let i = 0; i < affected.length; i += 400) {
+        const batch = writeBatch(db);
+        affected.slice(i, i + 400).forEach(r => {
+          batch.update(doc(db, 'records', r.id), { type: 'other' });
+        });
+        await batch.commit();
+      }
+    }
+    const newTypes = settings.definedTypes.filter(t => t.id !== typeId);
+    const updated = { ...settings, definedTypes: newTypes };
+    await updateDoc(doc(db, 'settings', 'config'), updated);
+    setSettings(updated);
+  };
+
+  const handleUpdateUsers = async (newUsers) => {
+    const updated = { ...settings, definedUsers: newUsers };
+    await updateDoc(doc(db, 'settings', 'config'), updated);
+    setSettings(updated);
+  };
+
   const handleDeleteRecurring = async (id) => {
     if (!window.confirm('確定要刪除此週期項目？')) return;
     await deleteDoc(doc(db, 'recurring', id));
@@ -242,6 +273,7 @@ export default function App() {
             { key: 'records',   label: '費用記錄' },
             { key: 'recurring', label: `週期項目${dueItems.length > 0 ? ` (${dueItems.length})` : ''}` },
             { key: 'analytics', label: '數據分析' },
+            { key: 'settings',  label: '設定' },
           ].map(t => (
             <button
               key={t.key}
@@ -266,9 +298,10 @@ export default function App() {
                 items={dueItems}
                 onConfirm={handleConfirmRecurring}
                 onSkip={handleSkipRecurring}
+                definedTypes={settings.definedTypes}
               />
             )}
-            <FilterBar filters={filters} onFilter={setFilters} definedUsers={settings.definedUsers} />
+            <FilterBar filters={filters} onFilter={setFilters} definedUsers={settings.definedUsers} definedTypes={settings.definedTypes} />
             <StatsBar records={filteredRecords} />
             <div className="flex justify-between items-center mb-3">
               <span className="text-sm text-gray-400 dark:text-neutral-500">{filteredRecords.length} 筆記錄</span>
@@ -279,7 +312,7 @@ export default function App() {
                 + 新增記錄
               </button>
             </div>
-            <RecordList records={filteredRecords} onDelete={handleDelete} onEdit={r => setEditingRecord(r)} />
+            <RecordList records={filteredRecords} onDelete={handleDelete} onEdit={r => setEditingRecord(r)} definedTypes={settings.definedTypes} />
           </>
         )}
 
@@ -298,6 +331,7 @@ export default function App() {
               onDelete={handleDeleteRecurring}
               onToggle={handleToggleRecurring}
               onEdit={item => setEditingRecurring(item)}
+              definedTypes={settings.definedTypes}
             />
           </>
         )}
@@ -308,6 +342,18 @@ export default function App() {
             records={records}
             darkMode={darkMode}
             definedUsers={settings.definedUsers}
+            definedTypes={settings.definedTypes}
+          />
+        )}
+
+        {tab === 'settings' && (
+          <SettingsPage
+            definedTypes={settings.definedTypes}
+            definedUsers={settings.definedUsers}
+            records={records}
+            onUpdateTypes={handleUpdateTypes}
+            onDeleteType={handleDeleteType}
+            onUpdateUsers={handleUpdateUsers}
           />
         )}
 
@@ -317,6 +363,7 @@ export default function App() {
           onSave={handleAdd}
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
+          definedTypes={settings.definedTypes}
         />
       )}
 
@@ -327,6 +374,7 @@ export default function App() {
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
           editItem={editingRecord}
+          definedTypes={settings.definedTypes}
         />
       )}
 
@@ -336,6 +384,7 @@ export default function App() {
           onSave={handleAddRecurring}
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
+          definedTypes={settings.definedTypes}
         />
       )}
 
@@ -346,6 +395,7 @@ export default function App() {
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
           editItem={editingRecurring}
+          definedTypes={settings.definedTypes}
         />
       )}
     </div>

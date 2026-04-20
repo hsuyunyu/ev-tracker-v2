@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pencil } from 'lucide-react';
-
-const TYPE_ICONS = { charging: '⚡', tolls: '🛣️', maintenance: '🔧', insurance: '🛡️', other: '📋' };
+import { buildTypeMap } from '../typeConfig';
 
 function getIntervalLabel(item) {
   const months = item.intervalMonths ||
@@ -12,7 +11,7 @@ function getIntervalLabel(item) {
 
 const INTERVAL_COLOR = 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400';
 
-export default function RecurringList({ items, onDelete, onToggle, onEdit }) {
+export default function RecurringList({ items, onDelete, onToggle, onEdit, definedTypes }) {
   if (items.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400 dark:text-neutral-600">
@@ -23,6 +22,7 @@ export default function RecurringList({ items, onDelete, onToggle, onEdit }) {
     );
   }
 
+  const typeMap = buildTypeMap(definedTypes);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -40,9 +40,9 @@ export default function RecurringList({ items, onDelete, onToggle, onEdit }) {
             }`}
           >
             <span className={`text-base w-9 h-9 flex items-center justify-center rounded-full shrink-0 ${
-              item.active ? 'bg-gray-100 dark:bg-neutral-800' : 'bg-gray-50 dark:bg-neutral-900 opacity-40'
-            }`}>
-              {TYPE_ICONS[item.type] ?? '📋'}
+              item.active ? '' : 'opacity-40'
+            }`} style={{ backgroundColor: (typeMap[item.type]?.color ?? '#6b7280') + '22' }}>
+              {typeMap[item.type]?.icon ?? '📋'}
             </span>
 
             <div className="flex-1 min-w-0">

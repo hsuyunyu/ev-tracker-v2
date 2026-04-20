@@ -1,14 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Pencil } from 'lucide-react';
-
-const TYPE_CONFIG = {
-  charging:    { label: '充電',   icon: '⚡', light: 'bg-blue-50 text-blue-600',    dark: 'dark:bg-blue-950 dark:text-blue-400' },
-  tolls:       { label: '過路費', icon: '🛣️', light: 'bg-orange-50 text-orange-600', dark: 'dark:bg-orange-950 dark:text-orange-400' },
-  maintenance: { label: '保養',   icon: '🔧', light: 'bg-yellow-50 text-yellow-600', dark: 'dark:bg-yellow-950 dark:text-yellow-400' },
-  insurance:   { label: '保險',   icon: '🛡️', light: 'bg-purple-50 text-purple-600', dark: 'dark:bg-purple-950 dark:text-purple-400' },
-  other:       { label: '其他',   icon: '📋', light: 'bg-gray-100 text-gray-500',    dark: 'dark:bg-neutral-800 dark:text-neutral-400' },
-};
+import { buildTypeMap } from '../typeConfig';
 
 const USER_COLORS = {
   '所有人': 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
@@ -21,7 +14,7 @@ function formatDate(dateStr) {
   catch { return dateStr?.slice(0, 10) ?? ''; }
 }
 
-export default function RecordList({ records, onDelete, onEdit }) {
+export default function RecordList({ records, onDelete, onEdit, definedTypes }) {
   if (records.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400 dark:text-neutral-600">
@@ -31,10 +24,13 @@ export default function RecordList({ records, onDelete, onEdit }) {
     );
   }
 
+  const typeMap = buildTypeMap(definedTypes);
+  const fallback = { label: '其他', icon: '📋', color: '#6b7280' };
+
   return (
     <div className="space-y-2">
       {records.map(record => {
-        const tc = TYPE_CONFIG[record.type] ?? TYPE_CONFIG.other;
+        const tc = typeMap[record.type] ?? fallback;
         const userColor = USER_COLORS[record.user] ?? 'bg-gray-100 text-gray-500 dark:bg-neutral-800 dark:text-neutral-400';
 
         return (
@@ -42,14 +38,17 @@ export default function RecordList({ records, onDelete, onEdit }) {
             key={record.id}
             className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl px-4 py-3 flex items-center gap-3 hover:border-gray-300 dark:hover:border-neutral-700 transition-colors"
           >
-            <span className={`text-base w-9 h-9 flex items-center justify-center rounded-full shrink-0 ${tc.light} ${tc.dark}`}>
+            <span
+              className="text-base w-9 h-9 flex items-center justify-center rounded-full shrink-0"
+              style={{ backgroundColor: tc.color + '22', color: tc.color }}
+            >
               {tc.icon}
             </span>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {record.vendor || tc.label}
+                  {record.vendor || tc.label || record.type}
                 </span>
                 {record.note && (
                   <span className="text-xs text-gray-400 dark:text-neutral-500 truncate max-w-[120px]">

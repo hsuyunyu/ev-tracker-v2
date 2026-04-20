@@ -1,9 +1,8 @@
 import React from 'react';
+import { buildTypeMap } from '../typeConfig';
 
-const TYPE_ICONS = { charging: '⚡', tolls: '🛣️', maintenance: '🔧', insurance: '🛡️', other: '📋' };
-const INTERVAL_LABELS = { monthly: '每月', quarterly: '每季', yearly: '每年' };
-
-export default function DueBanner({ items, onConfirm, onSkip }) {
+export default function DueBanner({ items, onConfirm, onSkip, definedTypes }) {
+  const typeMap = buildTypeMap(definedTypes);
   return (
     <div className="bg-tesla/10 dark:bg-tesla/20 border border-tesla/30 rounded-xl p-4 mb-4">
       <p className="text-sm font-semibold text-tesla mb-3">
@@ -15,13 +14,13 @@ export default function DueBanner({ items, onConfirm, onSkip }) {
             key={item.id}
             className="bg-white dark:bg-neutral-900 rounded-lg px-3 py-2.5 flex items-center gap-3 border border-gray-200 dark:border-neutral-800"
           >
-            <span className="text-base">{TYPE_ICONS[item.type] ?? '📋'}</span>
+            <span className="text-base">{typeMap[item.type]?.icon ?? '📋'}</span>
             <div className="flex-1 min-w-0">
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 {item.vendor || item.type}
               </span>
               <span className="text-xs text-gray-400 dark:text-neutral-500 ml-2">
-                {INTERVAL_LABELS[item.interval]} · ${item.cost?.toLocaleString()}
+                ${item.cost?.toLocaleString()}
               </span>
             </div>
             <div className="flex gap-2 shrink-0">

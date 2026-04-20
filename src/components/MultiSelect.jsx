@@ -6,8 +6,8 @@ export default function MultiSelect({ options, value, onChange, placeholder }) {
 
   useEffect(() => {
     const fn = e => { if (!ref.current?.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', fn);
-    return () => document.removeEventListener('mousedown', fn);
+    document.addEventListener('click', fn);
+    return () => document.removeEventListener('click', fn);
   }, []);
 
   // value=[] means "all selected"
@@ -39,7 +39,7 @@ export default function MultiSelect({ options, value, onChange, placeholder }) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
         className={btnCls + ' text-gray-600 dark:text-neutral-300'}
       >
         <span>{placeholder}：{label}</span>
@@ -49,7 +49,7 @@ export default function MultiSelect({ options, value, onChange, placeholder }) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-lg z-30 min-w-[150px] py-1">
+        <div onClick={e => e.stopPropagation()} className="absolute top-full left-0 mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-lg z-30 min-w-[150px] py-1">
           <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 dark:hover:bg-neutral-700 cursor-pointer">
             <input
               type="checkbox"

@@ -1,31 +1,27 @@
 import React from 'react';
+import { resolveTypes } from '../typeConfig';
 
-const TYPES = [
-  { value: 'all',         label: '全部' },
-  { value: 'charging',    label: '⚡ 充電' },
-  { value: 'tolls',       label: '🛣️ 過路費' },
-  { value: 'maintenance', label: '🔧 保養' },
-  { value: 'insurance',   label: '🛡️ 保險' },
-  { value: 'other',       label: '📋 其他' },
-];
-
-export default function FilterBar({ filters, onFilter, definedUsers }) {
+export default function FilterBar({ filters, onFilter, definedUsers, definedTypes }) {
+  const typeList = [
+    { id: 'all', label: '全部', icon: '' },
+    ...resolveTypes(definedTypes),
+  ];
   const hasFilter = filters.type !== 'all' || filters.user !== 'all' || filters.month;
 
   return (
     <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl p-4 mb-4 space-y-3">
       <div className="flex flex-wrap gap-2">
-        {TYPES.map(t => (
+        {typeList.map(t => (
           <button
-            key={t.value}
-            onClick={() => onFilter(f => ({ ...f, type: t.value }))}
+            key={t.id}
+            onClick={() => onFilter(f => ({ ...f, type: t.id }))}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              filters.type === t.value
+              filters.type === t.id
                 ? 'bg-tesla text-white'
                 : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-400 hover:bg-gray-200 dark:hover:bg-neutral-700'
             }`}
           >
-            {t.label}
+            {t.icon ? `${t.icon} ${t.label}` : t.label}
           </button>
         ))}
       </div>
