@@ -1,38 +1,43 @@
 import React from 'react';
-import { resolveTypes } from '../typeConfig';
+import { resolveTypes, TypeIcon } from '../typeConfig';
 
 export default function FilterBar({ filters, onFilter, definedUsers, definedTypes }) {
-  const typeList = [
-    { id: 'all', label: '全部', icon: '' },
-    ...resolveTypes(definedTypes),
-  ];
+  const typeList = [{ id: 'all', label: '全部', icon: null }, ...resolveTypes(definedTypes)];
   const hasFilter = filters.type !== 'all' || filters.user !== 'all' || filters.month;
 
+  const selectCls =
+    'text-sm border border-ww-line2 rounded-ww-inner px-3 py-1.5 text-ww-ink2 bg-ww-field ' +
+    'focus:outline-none focus:border-ww-brand transition-colors';
+
   return (
-    <div className="bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-xl p-4 mb-4 space-y-3">
+    <div className="bg-ww-card border border-ww-line rounded-ww-list p-4 mb-4 space-y-3">
       <div className="flex flex-wrap gap-2">
-        {typeList.map(t => (
-          <button
-            key={t.id}
-            onClick={() => onFilter(f => ({ ...f, type: t.id }))}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              filters.type === t.id
-                ? 'bg-tesla text-white'
-                : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-400 hover:bg-gray-200 dark:hover:bg-neutral-700'
-            }`}
-          >
-            {t.icon ? `${t.icon} ${t.label}` : t.label}
-          </button>
-        ))}
+        {typeList.map(t => {
+          const active = filters.type === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => onFilter(f => ({ ...f, type: t.id }))}
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                active
+                  ? 'bg-ww-brand text-white'
+                  : 'bg-ww-seg text-ww-ink2 hover:bg-ww-seg2'
+              }`}
+            >
+              {t.icon && <TypeIcon icon={t.icon} size={13} />}
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap gap-2.5 items-center">
         <select
           value={filters.user}
           onChange={e => onFilter(f => ({ ...f, user: e.target.value }))}
-          className="text-sm border border-gray-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-neutral-300 bg-white dark:bg-neutral-800"
+          className={selectCls}
         >
-          <option value="all">所有使用者</option>
+          <option value="all">所有成員</option>
           {definedUsers.map(u => <option key={u} value={u}>{u}</option>)}
         </select>
 
@@ -40,13 +45,13 @@ export default function FilterBar({ filters, onFilter, definedUsers, definedType
           type="month"
           value={filters.month}
           onChange={e => onFilter(f => ({ ...f, month: e.target.value }))}
-          className="text-sm border border-gray-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 text-gray-600 dark:text-neutral-300 bg-white dark:bg-neutral-800"
+          className={selectCls}
         />
 
         {hasFilter && (
           <button
             onClick={() => onFilter({ type: 'all', user: 'all', month: '' })}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300 underline"
+            className="text-xs text-ww-sub hover:text-ww-ink underline transition-colors"
           >
             清除篩選
           </button>

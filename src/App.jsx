@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db } from './firebase';
+import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import {
-  collection, onSnapshot, addDoc, deleteDoc,
-  doc, setDoc, writeBatch, updateDoc,
+  onSnapshot, addDoc, deleteDoc, setDoc, writeBatch, updateDoc,
 } from 'firebase/firestore';
+import { db } from './firebase';
+import {
+  resolveHouseholdId, clearCachedHouseholdId,
+  hCollection, hDoc, settingsDoc,
+} from './household';
+import {
+  unsettledSplitRecords, calcBalance, pendingSettlement, isSettled,
+} from './split';
+
 import Login from './components/Login';
 import NavBar from './components/NavBar';
+import TabBar from './components/TabBar';
 import FilterBar from './components/FilterBar';
 import StatsBar from './components/StatsBar';
 import RecordList from './components/RecordList';
@@ -16,55 +25,73 @@ import RecurringList from './components/RecurringList';
 import AddRecurringModal from './components/AddRecurringModal';
 import AnalyticsPage from './components/AnalyticsPage';
 import SettingsPage from './components/SettingsPage';
+import SettlementPage from './components/SettlementPage';
+import MileagePage from './components/MileagePage';
+import BalanceBar from './components/BalanceBar';
 
 function calculateNextDue(currentDue, item) {
   const d = new Date(currentDue);
   const months = item.intervalMonths ||
     { monthly: 1, quarterly: 3, yearly: 12 }[item.interval] || 1;
+  const targetDay = item.dayOfMonth || d.getDate();
+  // 先設 1 號再加月份，最後 clamp 到該月最大天數（與 iOS RecurringItem 相同，
+  // 避免 1/31 + 1 個月被正規化成 3/2）
+  d.setDate(1);
   d.setMonth(d.getMonth() + months);
-  if (item.dayOfMonth) {
-    const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(item.dayOfMonth, maxDay));
-  }
-  return d.toISOString().slice(0, 10);
+  const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(targetDay, maxDay));
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+const DEFAULT_SETTINGS = {
+  definedUsers: ['Rose', '1+'],
+  defaultVehicleId: '',
+  definedTypes: [],
+  notificationsEnabled: false,
+  notificationDaysBefore: 7,
+  appearanceMode: 'system',
+  defaultSplitEnabled: false,
+  defaultSplitMethod: 'equal',
+  defaultSplitRules: [],
+};
 
 export default function App() {
   const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // 帳本（household）：網頁與 App 指向同一個 id 才會同步
+  const [householdId, setHouseholdId] = useState(null);
+  const [householdState, setHouseholdState] = useState('resolving'); // resolving | ready | none | error
+  const [retryKey, setRetryKey] = useState(0);
+
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  const [records,   setRecords]   = useState([]);
-  const [vehicles,  setVehicles]  = useState([]);
-  const [recurring, setRecurring] = useState([]);
-  const [settings,  setSettings]  = useState({
-    definedUsers: ['Rose', '1+'],
-    defaultVehicleId: '',
-    definedTypes: [],
-  });
+  const [records,     setRecords]     = useState([]);
+  const [vehicles,    setVehicles]    = useState([]);
+  const [recurring,   setRecurring]   = useState([]);
+  const [mileageLogs, setMileageLogs] = useState([]);
+  const [settlements, setSettlements] = useState([]);
+  const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
 
-  const [tab,       setTab]      = useState('records');
-  const [filters,   setFilters]  = useState({ type: 'all', user: 'all', month: '' });
-  const [showAdd,   setShowAdd]  = useState(false);
+  const [tab,     setTab]     = useState('records');
+  const [subPage, setSubPage] = useState(null); // null | 'settlement' | 'mileage'
+  const [filters, setFilters] = useState({ type: 'all', user: 'all', month: '' });
+  const [showAdd, setShowAdd] = useState(false);
   const [editingRecord,    setEditingRecord]    = useState(null);
   const [showAddRecurring, setShowAddRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef(null);
 
-  // Dark mode effect
+  // Dark mode
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   // Auth
@@ -72,42 +99,60 @@ export default function App() {
     return onAuthStateChanged(auth, u => {
       setUser(u);
       setLoading(false);
+      if (!u) {
+        setHouseholdId(null);
+        setHouseholdState('resolving');
+      }
     });
   }, []);
 
-  // Records
+  // 解析 householdId
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(collection(db, 'records'), snap => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      data.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setRecords(data);
-    });
-  }, [user]);
+    let cancelled = false;
+    setHouseholdState('resolving');
+    resolveHouseholdId(user.uid)
+      .then(id => {
+        if (cancelled) return;
+        if (id) { setHouseholdId(id); setHouseholdState('ready'); }
+        else    { setHouseholdId(null); setHouseholdState('none'); }
+      })
+      .catch(() => { if (!cancelled) setHouseholdState('error'); });
+    return () => { cancelled = true; };
+  }, [user, retryKey]);
 
-  // Vehicles
+  // 訂閱帳本底下的所有集合
   useEffect(() => {
-    if (!user) return;
-    return onSnapshot(collection(db, 'vehicles'), snap => {
-      setVehicles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, [user]);
+    if (!householdId) return;
 
-  // Recurring
-  useEffect(() => {
-    if (!user) return;
-    return onSnapshot(collection(db, 'recurring'), snap => {
-      setRecurring(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-  }, [user]);
-
-  // Settings（即時同步）
-  useEffect(() => {
-    if (!user) return;
-    return onSnapshot(doc(db, 'settings', 'config'), snap => {
-      if (snap.exists()) setSettings(snap.data());
-    });
-  }, [user]);
+    const subs = [
+      onSnapshot(hCollection(householdId, 'records'), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setRecords(data);
+      }),
+      onSnapshot(hCollection(householdId, 'vehicles'), snap => {
+        setVehicles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }),
+      onSnapshot(hCollection(householdId, 'recurring'), snap => {
+        setRecurring(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }),
+      onSnapshot(hCollection(householdId, 'mileageLogs'), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setMileageLogs(data);
+      }),
+      onSnapshot(hCollection(householdId, 'settlements'), snap => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        data.sort((a, b) => (b.sequenceNumber || 0) - (a.sequenceNumber || 0));
+        setSettlements(data);
+      }),
+      onSnapshot(settingsDoc(householdId), snap => {
+        if (snap.exists()) setSettings({ ...DEFAULT_SETTINGS, ...snap.data() });
+      }),
+    ];
+    return () => subs.forEach(un => un());
+  }, [householdId]);
 
   const today = new Date().toISOString().slice(0, 10);
   const dueItems = recurring.filter(r => r.active && r.nextDue <= today);
@@ -124,23 +169,32 @@ export default function App() {
     return true;
   });
 
+  // 分攤餘額不受月份篩選影響（全域未結清），與 iOS RecordsView 一致
+  const openRecords = unsettledSplitRecords(records, settlements);
+  const balance     = calcBalance(openRecords, settings.definedUsers);
+  const pending     = pendingSettlement(settlements);
+
+  // MARK: - 記錄
+
   const handleDelete = async (id) => {
     if (!window.confirm('確定要刪除這筆記錄？')) return;
-    await deleteDoc(doc(db, 'records', id));
+    await deleteDoc(hDoc(householdId, 'records', id));
   };
 
   const handleAdd = async (formData) => {
-    await addDoc(collection(db, 'records'), formData);
+    await addDoc(hCollection(householdId, 'records'), formData);
     setShowAdd(false);
   };
 
   const handleEditRecord = async (formData) => {
-    await updateDoc(doc(db, 'records', editingRecord.id), formData);
+    await updateDoc(hDoc(householdId, 'records', editingRecord.id), formData);
     setEditingRecord(null);
   };
 
+  // MARK: - 週期項目
+
   const handleConfirmRecurring = async (item) => {
-    await addDoc(collection(db, 'records'), {
+    await addDoc(hCollection(householdId, 'records'), {
       type: item.type,
       vendor: item.vendor,
       cost: item.cost,
@@ -151,23 +205,92 @@ export default function App() {
       mileage: '',
       expiryDate: '',
       date: new Date().toISOString().slice(0, 16),
+      paidBy: item.user,
+      splitMethod: 'none',
+      splitEntries: [],
     });
-    await updateDoc(doc(db, 'recurring', item.id), {
+    await updateDoc(hDoc(householdId, 'recurring', item.id), {
       nextDue: calculateNextDue(item.nextDue, item),
     });
   };
 
   const handleSkipRecurring = async (item) => {
-    await updateDoc(doc(db, 'recurring', item.id), {
+    await updateDoc(hDoc(householdId, 'recurring', item.id), {
       nextDue: calculateNextDue(item.nextDue, item),
     });
   };
 
-  const handleUpdateTypes = async (newTypes) => {
-    const updated = { ...settings, definedTypes: newTypes };
-    await updateDoc(doc(db, 'settings', 'config'), updated);
+  const handleDeleteRecurring = async (id) => {
+    if (!window.confirm('確定要刪除此週期項目？')) return;
+    await deleteDoc(hDoc(householdId, 'recurring', id));
+  };
+
+  const handleToggleRecurring = async (item) => {
+    await updateDoc(hDoc(householdId, 'recurring', item.id), { active: !item.active });
+  };
+
+  const handleAddRecurring = async (formData) => {
+    await addDoc(hCollection(householdId, 'recurring'), formData);
+    setShowAddRecurring(false);
+  };
+
+  const handleEditRecurring = async (formData) => {
+    const { id, ...data } = editingRecurring;
+    await updateDoc(hDoc(householdId, 'recurring', id), { ...data, ...formData });
+    setEditingRecurring(null);
+  };
+
+  // MARK: - 里程
+
+  const handleAddMileage = async (log) => {
+    await addDoc(hCollection(householdId, 'mileageLogs'), log);
+  };
+
+  const handleDeleteMileage = async (id) => {
+    if (!window.confirm('確定要刪除這筆里程記錄？')) return;
+    await deleteDoc(hDoc(householdId, 'mileageLogs', id));
+  };
+
+  // MARK: - 結清
+
+  const handleCreateSettlement = async (selected) => {
+    if (pending) return;
+    const b = calcBalance(selected, settings.definedUsers);
+    if (!b) return;
+    const nextSeq = Math.max(0, ...settlements.map(s => s.sequenceNumber || 0)) + 1;
+    await addDoc(hCollection(householdId, 'settlements'), {
+      sequenceNumber: nextSeq,
+      createdAt: new Date().toISOString().slice(0, 10),
+      settledAt: '',
+      debtorUser: b.debtor,
+      creditorUser: b.creditor,
+      amount: b.amount,
+      note: '',
+      recordIds: selected.map(r => r.id),
+    });
+  };
+
+  const handleMarkSettled = async (s) => {
+    await updateDoc(hDoc(householdId, 'settlements', s.id), {
+      settledAt: new Date().toISOString().slice(0, 10),
+    });
+  };
+
+  const handleDeleteSettlement = async (s) => {
+    if (!window.confirm('確定要刪除這筆結算？')) return;
+    await deleteDoc(hDoc(householdId, 'settlements', s.id));
+  };
+
+  // MARK: - 設定
+
+  const saveSettings = async (patch) => {
+    const updated = { ...settings, ...patch };
+    await setDoc(settingsDoc(householdId), updated, { merge: true });
     setSettings(updated);
   };
+
+  const handleUpdateTypes = (newTypes) => saveSettings({ definedTypes: newTypes });
+  const handleUpdateUsers = (newUsers) => saveSettings({ definedUsers: newUsers });
 
   const handleDeleteType = async (typeId, hasRecords) => {
     if (hasRecords) {
@@ -175,41 +298,12 @@ export default function App() {
       for (let i = 0; i < affected.length; i += 400) {
         const batch = writeBatch(db);
         affected.slice(i, i + 400).forEach(r => {
-          batch.update(doc(db, 'records', r.id), { type: 'other' });
+          batch.update(hDoc(householdId, 'records', r.id), { type: 'other' });
         });
         await batch.commit();
       }
     }
-    const newTypes = settings.definedTypes.filter(t => t.id !== typeId);
-    const updated = { ...settings, definedTypes: newTypes };
-    await updateDoc(doc(db, 'settings', 'config'), updated);
-    setSettings(updated);
-  };
-
-  const handleUpdateUsers = async (newUsers) => {
-    const updated = { ...settings, definedUsers: newUsers };
-    await updateDoc(doc(db, 'settings', 'config'), updated);
-    setSettings(updated);
-  };
-
-  const handleDeleteRecurring = async (id) => {
-    if (!window.confirm('確定要刪除此週期項目？')) return;
-    await deleteDoc(doc(db, 'recurring', id));
-  };
-
-  const handleToggleRecurring = async (item) => {
-    await updateDoc(doc(db, 'recurring', item.id), { active: !item.active });
-  };
-
-  const handleAddRecurring = async (formData) => {
-    await addDoc(collection(db, 'recurring'), formData);
-    setShowAddRecurring(false);
-  };
-
-  const handleEditRecurring = async (formData) => {
-    const { id, ...data } = editingRecurring;
-    await updateDoc(doc(db, 'recurring', id), { ...data, ...formData });
-    setEditingRecurring(null);
+    await saveSettings({ definedTypes: settings.definedTypes.filter(t => t.id !== typeId) });
   };
 
   const handleImport = async (e) => {
@@ -217,14 +311,13 @@ export default function App() {
     if (!file) return;
     setImporting(true);
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+      const data = JSON.parse(await file.text());
       const items = [];
       data.records?.forEach(({ id, ...rest }) => {
-        items.push({ ref: doc(db, 'records', id), data: rest });
+        items.push({ ref: hDoc(householdId, 'records', id), data: rest });
       });
       data.vehicles?.forEach(({ id, ...rest }) => {
-        items.push({ ref: doc(db, 'vehicles', id), data: rest });
+        items.push({ ref: hDoc(householdId, 'vehicles', id), data: rest });
       });
       for (let i = 0; i < items.length; i += 400) {
         const batch = writeBatch(db);
@@ -232,12 +325,10 @@ export default function App() {
         await batch.commit();
       }
       if (data.definedUsers || data.defaultVehicleId) {
-        const cfg = {
-          definedUsers: data.definedUsers ?? [],
-          defaultVehicleId: data.defaultVehicleId ?? '',
-        };
-        await setDoc(doc(db, 'settings', 'config'), cfg);
-        setSettings(cfg);
+        await saveSettings({
+          definedUsers: data.definedUsers ?? settings.definedUsers,
+          defaultVehicleId: data.defaultVehicleId ?? settings.defaultVehicleId,
+        });
       }
       alert(`匯入成功！共 ${data.records?.length ?? 0} 筆記錄`);
     } catch (err) {
@@ -248,18 +339,27 @@ export default function App() {
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-neutral-950">
-      <div className="text-gray-400">載入中...</div>
-    </div>
-  );
+  // MARK: - Render
 
-  if (!user) return <Login darkMode={darkMode} />;
+  if (loading) return <Splash text="載入中…" />;
+  if (!user)   return <Login darkMode={darkMode} />;
+
+  if (householdState === 'resolving') return <Splash text="連線帳本中…" />;
+
+  if (householdState !== 'ready') {
+    return (
+      <NoHousehold
+        state={householdState}
+        onRetry={() => { clearCachedHouseholdId(user.uid); setRetryKey(k => k + 1); }}
+        onSignOut={() => signOut(auth)}
+      />
+    );
+  }
 
   const defaultVehicleId = settings.defaultVehicleId || vehicles[0]?.id || '';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-neutral-950 transition-colors">
+    <div className="min-h-screen bg-ww-bg text-ww-ink transition-colors">
       <NavBar
         user={user}
         darkMode={darkMode}
@@ -271,32 +371,33 @@ export default function App() {
 
       <input ref={importInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
 
-      {/* Tabs */}
-      <div className="bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-800">
-        <div className="max-w-4xl mx-auto px-4 flex gap-1">
-          {[
-            { key: 'records',   label: '費用記錄' },
-            { key: 'recurring', label: `週期項目${dueItems.length > 0 ? ` (${dueItems.length})` : ''}` },
-            { key: 'analytics', label: '數據分析' },
-            { key: 'settings',  label: '設定' },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key
-                  ? 'border-tesla text-tesla'
-                  : 'border-transparent text-gray-500 dark:text-neutral-400 hover:text-gray-700 dark:hover:text-neutral-200'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <main className="max-w-4xl mx-auto px-4 py-5 pb-28">
+        {/* 子頁面：從記錄頁進入 */}
+        {subPage === 'settlement' && (
+          <SettlementPage
+            records={records}
+            settlements={settlements}
+            settings={settings}
+            onBack={() => setSubPage(null)}
+            onCreate={handleCreateSettlement}
+            onMarkSettled={handleMarkSettled}
+            onDelete={handleDeleteSettlement}
+          />
+        )}
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {tab === 'records' && (
+        {subPage === 'mileage' && (
+          <MileagePage
+            logs={mileageLogs}
+            records={records}
+            vehicles={vehicles}
+            defaultVehicleId={defaultVehicleId}
+            onBack={() => setSubPage(null)}
+            onAdd={handleAddMileage}
+            onDelete={handleDeleteMileage}
+          />
+        )}
+
+        {!subPage && tab === 'records' && (
           <>
             {dueItems.length > 0 && (
               <DueBanner
@@ -306,61 +407,81 @@ export default function App() {
                 definedTypes={settings.definedTypes}
               />
             )}
-            <FilterBar filters={filters} onFilter={setFilters} definedUsers={settings.definedUsers} definedTypes={settings.definedTypes} />
-            <StatsBar records={filteredRecords} />
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm text-gray-400 dark:text-neutral-500">{filteredRecords.length} 筆記錄</span>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="bg-tesla hover:bg-tesla-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              >
-                + 新增記錄
-              </button>
-            </div>
-            <RecordList records={filteredRecords} onDelete={handleDelete} onEdit={r => setEditingRecord(r)} definedTypes={settings.definedTypes} />
-          </>
-        )}
 
-        {tab === 'recurring' && (
-          <>
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={() => setShowAddRecurring(true)}
-                className="bg-tesla hover:bg-tesla-hover text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-              >
-                + 新增週期
-              </button>
-            </div>
-            <RecurringList
-              items={recurring}
-              onDelete={handleDeleteRecurring}
-              onToggle={handleToggleRecurring}
-              onEdit={item => setEditingRecurring(item)}
+            <BalanceBar
+              balance={balance}
+              pending={pending}
+              onOpen={() => setSubPage('settlement')}
+              onOpenMileage={() => setSubPage('mileage')}
+            />
+
+            <FilterBar
+              filters={filters}
+              onFilter={setFilters}
+              definedUsers={settings.definedUsers}
               definedTypes={settings.definedTypes}
+            />
+            <StatsBar records={filteredRecords} />
+
+            <div className="flex justify-between items-center mb-3 mt-4">
+              <span className="text-sm text-ww-sub">{filteredRecords.length} 筆記錄</span>
+            </div>
+
+            <RecordList
+              records={filteredRecords}
+              onDelete={handleDelete}
+              onEdit={r => setEditingRecord(r)}
+              definedTypes={settings.definedTypes}
+              settledIds={new Set(settlements.flatMap(s => s.recordIds || []))}
             />
           </>
         )}
-      </main>
 
-        {tab === 'analytics' && (
+        {!subPage && tab === 'recurring' && (
+          <RecurringList
+            items={recurring}
+            onDelete={handleDeleteRecurring}
+            onToggle={handleToggleRecurring}
+            onEdit={item => setEditingRecurring(item)}
+            definedTypes={settings.definedTypes}
+          />
+        )}
+
+        {!subPage && tab === 'analytics' && (
           <AnalyticsPage
             records={records}
+            mileageLogs={mileageLogs}
             darkMode={darkMode}
             definedUsers={settings.definedUsers}
             definedTypes={settings.definedTypes}
           />
         )}
 
-        {tab === 'settings' && (
+        {!subPage && tab === 'settings' && (
           <SettingsPage
+            settings={settings}
             definedTypes={settings.definedTypes}
             definedUsers={settings.definedUsers}
             records={records}
+            vehicles={vehicles}
+            householdId={householdId}
             onUpdateTypes={handleUpdateTypes}
             onDeleteType={handleDeleteType}
             onUpdateUsers={handleUpdateUsers}
+            onSaveSettings={saveSettings}
+            onOpenMileage={() => setSubPage('mileage')}
           />
         )}
+      </main>
+
+      {!subPage && (
+        <TabBar
+          tab={tab}
+          onChange={t => { setTab(t); setSubPage(null); }}
+          dueCount={dueItems.length}
+          onAdd={() => (tab === 'recurring' ? setShowAddRecurring(true) : setShowAdd(true))}
+        />
+      )}
 
       {showAdd && (
         <AddRecordModal
@@ -369,6 +490,8 @@ export default function App() {
           definedUsers={settings.definedUsers}
           defaultVehicleId={defaultVehicleId}
           definedTypes={settings.definedTypes}
+          settings={settings}
+          vehicles={vehicles}
         />
       )}
 
@@ -380,6 +503,8 @@ export default function App() {
           defaultVehicleId={defaultVehicleId}
           editItem={editingRecord}
           definedTypes={settings.definedTypes}
+          settings={settings}
+          vehicles={vehicles}
         />
       )}
 
@@ -403,6 +528,40 @@ export default function App() {
           definedTypes={settings.definedTypes}
         />
       )}
+    </div>
+  );
+}
+
+function Splash({ text }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ww-bg">
+      <div className="text-ww-sub text-sm">{text}</div>
+    </div>
+  );
+}
+
+function NoHousehold({ state, onRetry, onSignOut }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ww-bg px-6">
+      <div className="max-w-sm w-full bg-ww-card border border-ww-line rounded-ww-lg p-7 text-center">
+        <div className="text-lg font-semibold text-ww-ink mb-2">
+          {state === 'error' ? '帳本讀取失敗' : '尚未加入帳本'}
+        </div>
+        <p className="text-sm text-ww-ink2 leading-relaxed mb-5">
+          {state === 'error'
+            ? '無法讀取帳本資料，請檢查網路後重試。'
+            : '這個 Google 帳號還沒有家庭帳本。請先在 WattWise App 建立帳本或用邀請碼加入，網頁版才能同步同一份資料。'}
+        </p>
+        <button
+          onClick={onRetry}
+          className="w-full bg-ww-brand hover:bg-ww-brandhover text-white py-2.5 rounded-ww-inner text-sm font-medium transition-colors mb-2"
+        >
+          重新載入
+        </button>
+        <button onClick={onSignOut} className="w-full text-ww-sub py-2 text-sm hover:text-ww-ink transition-colors">
+          切換帳號
+        </button>
+      </div>
     </div>
   );
 }

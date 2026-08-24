@@ -1,3 +1,65 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* WattWise 主題變數：數值取自 iOS Assets.xcassets/Theme 的 colorset（米白 / 鼠尾草綠）。
+   以 "R G B" 形式提供，讓 Tailwind 的 <alpha-value> 可以套用透明度。 */
+@layer base {
+  :root {
+    --ww-bg:         243 240 233;  /* #F3F0E9 */
+    --ww-card:       252 251 246;  /* #FCFBF6 */
+    --ww-seg:        238 232 220;  /* #EEE8DC */
+    --ww-seg2:       255 255 255;  /* #FFFFFF */
+    --ww-field:      255 255 255;  /* #FFFFFF */
+    --ww-barbg:      243 240 233;  /* #F3F0E9 */
+
+    --ww-line:       236 230 218;  /* #ECE6DA */
+    --ww-line2:      227 220 205;  /* #E3DCCD */
+    --ww-line3:      241 236 225;  /* #F1ECE1 */
+
+    --ww-ink:         33  29  23;  /* #211D17 */
+    --ww-ink2:        91  83  70;  /* #5B5346 */
+    --ww-sub:        140 133 121;  /* #8C8579 */
+    --ww-faint:      183 174 159;  /* #B7AE9F */
+
+    --ww-greenbg:    234 240 228;  /* #EAF0E4 */
+    --ww-greenline:  210 222 200;  /* #D2DEC8 */
+    --ww-greentitle:  93 116  86;  /* #5D7456 */
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --ww-bg:          26  24  19;  /* #1A1813 */
+    --ww-card:        36  33  26;  /* #24211A */
+    --ww-seg:         45  42  33;  /* #2D2A21 */
+    --ww-seg2:        58  53  43;  /* #3A352B */
+    --ww-field:       42  39  31;  /* #2A271F */
+    --ww-barbg:       26  24  19;  /* #1A1813 */
+
+    --ww-line:        52  48  42;  /* #34302A */
+    --ww-line2:       56  50  41;  /* #383229 */
+    --ww-line3:       46  42  34;  /* #2E2A22 */
+
+    --ww-ink:        243 239 230;  /* #F3EFE6 */
+    --ww-ink2:       200 193 179;  /* #C8C1B3 */
+    --ww-sub:        150 143 128;  /* #968F80 */
+    --ww-faint:      110 103  91;  /* #6E675B */
+
+    --ww-greenbg:     32  44  27;  /* #202C1B */
+    --ww-greenline:   49  64  42;  /* #31402A */
+    --ww-greentitle: 141 168 130;  /* 深色模式下提亮，維持對比 */
+
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-ww-bg text-ww-ink;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 加到主畫面（standalone PWA）時，頂列與底列自行避開瀏海／home indicator，
+     底列預留空間避免文字被切到（與 iOS 端 WattTabBar 同樣處理）。 */
+  .ww-safe-top    { padding-top: env(safe-area-inset-top); }
+  .ww-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
