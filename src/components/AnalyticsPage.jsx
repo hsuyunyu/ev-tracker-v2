@@ -53,7 +53,11 @@ export default function AnalyticsPage({ records, darkMode, definedUsers, defined
     if (deferredStart && d < deferredStart) return false;
     if (deferredEnd   && d > deferredEnd)   return false;
     if (deferredTypes.length > 0 && !deferredTypes.includes(r.type)) return false;
-    if (deferredUsers.length > 0 && !deferredUsers.includes(r.user)) return false;
+    if (deferredUsers.length > 0) {
+      const isMainUser  = deferredUsers.includes(r.user);
+      const isSplitUser = (r.splitEntries || []).some(e => deferredUsers.includes(e.user) && e.amount > 0);
+      if (!isMainUser && !isSplitUser) return false;
+    }
     return true;
   }), [records, deferredStart, deferredEnd, deferredTypes, deferredUsers]);
 

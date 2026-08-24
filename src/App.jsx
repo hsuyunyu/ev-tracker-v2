@@ -3,7 +3,7 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import {
   collection, onSnapshot, addDoc, deleteDoc,
-  doc, getDoc, setDoc, writeBatch, updateDoc,
+  doc, setDoc, writeBatch, updateDoc,
 } from 'firebase/firestore';
 import Login from './components/Login';
 import NavBar from './components/NavBar';
@@ -42,7 +42,7 @@ export default function App() {
   const [vehicles,  setVehicles]  = useState([]);
   const [recurring, setRecurring] = useState([]);
   const [settings,  setSettings]  = useState({
-    definedUsers: ['所有人', 'Rose', '1+'],
+    definedUsers: ['Rose', '1+'],
     defaultVehicleId: '',
     definedTypes: [],
   });
@@ -101,10 +101,10 @@ export default function App() {
     });
   }, [user]);
 
-  // Settings
+  // Settings（即時同步）
   useEffect(() => {
     if (!user) return;
-    getDoc(doc(db, 'settings', 'config')).then(snap => {
+    return onSnapshot(doc(db, 'settings', 'config'), snap => {
       if (snap.exists()) setSettings(snap.data());
     });
   }, [user]);
@@ -114,8 +114,13 @@ export default function App() {
 
   const filteredRecords = records.filter(r => {
     if (filters.type !== 'all' && r.type !== filters.type) return false;
-    if (filters.user !== 'all' && r.user !== filters.user) return false;
     if (filters.month && !r.date?.startsWith(filters.month)) return false;
+    // 成員篩選：主要支出人 OR 分攤參與者（含金額 > 0）
+    if (filters.user !== 'all') {
+      const isMainUser  = r.user === filters.user;
+      const isSplitUser = (r.splitEntries || []).some(e => e.user === filters.user && e.amount > 0);
+      if (!isMainUser && !isSplitUser) return false;
+    }
     return true;
   });
 
