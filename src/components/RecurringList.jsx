@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { buildTypeMap, TypeIcon } from '../typeConfig';
-import { ntd } from '../split';
+import { ntd, todayLocal } from '../split';
+import { isDue, normalizeDue } from '../recurring';
 
 function getIntervalLabel(item) {
   const months = item.intervalMonths ||
@@ -21,7 +22,7 @@ export default function RecurringList({ items, onDelete, onToggle, onEdit, defin
   }
 
   const typeMap = buildTypeMap(definedTypes);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
 
   // 啟用中的排前面（對應 iOS sortedRecurring）
   const sorted = [...items].sort((a, b) => {
@@ -32,14 +33,14 @@ export default function RecurringList({ items, onDelete, onToggle, onEdit, defin
   return (
     <div className="space-y-2">
       {sorted.map(item => {
-        const isDue = item.active && item.nextDue <= today;
+        const due = item.active && isDue(item, today);
         const t = typeMap[item.type];
 
         return (
           <div
             key={item.id}
             className={`bg-ww-card border rounded-ww-list px-4 py-3 flex items-center gap-3 transition-colors ${
-              isDue ? 'border-ww-brand/50' : 'border-ww-line'
+              due ? 'border-ww-brand/50' : 'border-ww-line'
             }`}
           >
             <span
@@ -57,12 +58,15 @@ export default function RecurringList({ items, onDelete, onToggle, onEdit, defin
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-ww-seg text-ww-ink2">
                   {getIntervalLabel(item)}
                 </span>
-                {isDue && (
-                  <span className="text-[10px] bg-ww-brand/15 text-ww-brand px-2 py-0.5 rounded-full">待確認</span>
+                {item.autoRecord && (
+                  <span className="text-[10px] bg-ww-brand/15 text-ww-brand px-2 py-0.5 rounded-full">自動</span>
+                )}
+                {due && !item.autoRecord && (
+                  <span className="text-[10px] bg-ww-toll/20 text-ww-toll px-2 py-0.5 rounded-full">待確認</span>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-ww-sub">下次：{item.nextDue}</span>
+                <span className="text-xs text-ww-sub">下次：{normalizeDue(item.nextDue) || '—'}</span>
                 {item.note && <span className="text-xs text-ww-sub truncate">{item.note}</span>}
               </div>
             </div>

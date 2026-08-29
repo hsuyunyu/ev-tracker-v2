@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { resolveTypes, TypeIcon } from '../typeConfig';
+import { todayLocal } from '../split';
 
 const VENDOR_PRESETS = {
   charging:    ['DARA', 'Tesla', 'iCharging', 'EVOASIS', 'U-power', 'TAIL', '星舟快充'],
@@ -31,7 +32,7 @@ export default function AddRecurringModal({
   onClose, onSave, definedUsers, defaultVehicleId, editItem, definedTypes,
 }) {
   const typeOptions = resolveTypes(definedTypes);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const isEdit = !!editItem;
 
   const [form, setForm] = useState(() => isEdit ? {
@@ -43,12 +44,14 @@ export default function AddRecurringModal({
     nextDue: editItem.nextDue,
     note: editItem.note ?? '', vehicleId: editItem.vehicleId ?? defaultVehicleId,
     active: editItem.active,
+    autoRecord: editItem.autoRecord ?? false,
   } : {
     type: 'other', vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '',
     intervalMonths: 1, dayOfMonth: '', nextDue: today,
     note: '', vehicleId: defaultVehicleId,
     active: true,
+    autoRecord: false,
   });
 
   const [saving, setSaving] = useState(false);
@@ -69,6 +72,7 @@ export default function AddRecurringModal({
         vehicleId: form.vehicleId || '',
         note: form.note,
         active: form.active,
+        autoRecord: !!form.autoRecord,
         nextDue: form.nextDue,
         interval: intervalKey(months),
         intervalMonths: months,
@@ -172,6 +176,29 @@ export default function AddRecurringModal({
             <Field label="備註（選填）">
               <input type="text" value={form.note} onChange={e => set('note', e.target.value)} className={inputCls} />
             </Field>
+
+            {/* 自動記帳：金額固定的訂閱適用，到期時自動補記，不再跳確認 */}
+            <div className="border-t border-ww-line pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-3">
+                  <div className="text-sm font-medium text-ww-ink2">自動記帳</div>
+                  <p className="text-[11px] text-ww-sub mt-0.5 leading-relaxed">
+                    到期時自動記一筆，不用手動確認。適合金額固定的訂閱；
+                    金額每次不同的項目建議關閉。
+                  </p>
+                </div>
+                <button
+                  type="button" onClick={() => set('autoRecord', !form.autoRecord)}
+                  className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                    form.autoRecord ? 'bg-ww-brand' : 'bg-ww-seg2 border border-ww-line2'
+                  }`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    form.autoRecord ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-3 mt-6">

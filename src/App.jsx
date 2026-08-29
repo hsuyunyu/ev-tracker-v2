@@ -10,8 +10,11 @@ import {
   hCollection, hDoc, settingsDoc,
 } from './household';
 import {
-  unsettledSplitRecords, calcBalance, pendingSettlement, isSettled,
+  unsettledSplitRecords, calcBalance, pendingSettlement, isSettled, todayLocal,
 } from './split';
+import {
+  calcNextDue, needsConfirm, pendingDueDates, autoRecordId, buildRecordFrom,
+} from './recurring';
 
 import Login from './components/Login';
 import NavBar from './components/NavBar';
@@ -28,21 +31,6 @@ import SettingsPage from './components/SettingsPage';
 import SettlementPage from './components/SettlementPage';
 import MileagePage from './components/MileagePage';
 import BalanceBar from './components/BalanceBar';
-
-function calculateNextDue(currentDue, item) {
-  const d = new Date(currentDue);
-  const months = item.intervalMonths ||
-    { monthly: 1, quarterly: 3, yearly: 12 }[item.interval] || 1;
-  const targetDay = item.dayOfMonth || d.getDate();
-  // 先設 1 號再加月份，最後 clamp 到該月最大天數（與 iOS RecurringItem 相同，
-  // 避免 1/31 + 1 個月被正規化成 3/2）
-  d.setDate(1);
-  d.setMonth(d.getMonth() + months);
-  const maxDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-  d.setDate(Math.min(targetDay, maxDay));
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 const DEFAULT_SETTINGS = {
   definedUsers: ['Rose', '1+'],
@@ -154,8 +142,46 @@ export default function App() {
     return () => subs.forEach(un => un());
   }, [householdId]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const dueItems = recurring.filter(r => r.active && r.nextDue <= today);
+  const today = todayLocal();
+  // 只有「沒開自動記帳」的到期項目才需要使用者確認
+  const dueItems = recurring.filter(r => needsConfirm(r, today));
+
+  // 自動記帳：開啟 autoRecord 的項目到期後自動補記（含補記過去漏掉的期數）。
+  // 文件 ID 由「項目 ID + 到期日」決定，App 與網頁同時補記也只會寫到同一份文件，
+  // 因此不會重複記帳。
+  const catchUpRan = useRef(new Set());
+  useEffect(() => {
+    if (!householdId || recurring.length === 0) return;
+
+    (async () => {
+      for (const item of recurring) {
+        const dates = pendingDueDates(item, today);
+        if (dates.length === 0) continue;
+
+        // 同一次載入內避免對同一項目重複觸發（onSnapshot 會多次回呼）
+        const guard = `${item.id}@${dates[dates.length - 1]}`;
+        if (catchUpRan.current.has(guard)) continue;
+        catchUpRan.current.add(guard);
+
+        try {
+          const batch = writeBatch(db);
+          for (const due of dates) {
+            batch.set(
+              hDoc(householdId, 'records', autoRecordId(item.id, due)),
+              buildRecordFrom(item, due)
+            );
+          }
+          // 推進到最後一期之後的下一次到期日
+          const finalDue = calcNextDue(dates[dates.length - 1], item);
+          batch.update(hDoc(householdId, 'recurring', item.id), { nextDue: finalDue });
+          await batch.commit();
+        } catch (err) {
+          catchUpRan.current.delete(guard);   // 失敗就允許下次重試
+          console.error('自動記帳失敗', item.vendor, err);
+        }
+      }
+    })();
+  }, [householdId, recurring, today]);
 
   const filteredRecords = records.filter(r => {
     if (filters.type !== 'all' && r.type !== filters.type) return false;
@@ -210,13 +236,13 @@ export default function App() {
       splitEntries: [],
     });
     await updateDoc(hDoc(householdId, 'recurring', item.id), {
-      nextDue: calculateNextDue(item.nextDue, item),
+      nextDue: calcNextDue(item.nextDue, item),
     });
   };
 
   const handleSkipRecurring = async (item) => {
     await updateDoc(hDoc(householdId, 'recurring', item.id), {
-      nextDue: calculateNextDue(item.nextDue, item),
+      nextDue: calcNextDue(item.nextDue, item),
     });
   };
 
@@ -260,7 +286,7 @@ export default function App() {
     const nextSeq = Math.max(0, ...settlements.map(s => s.sequenceNumber || 0)) + 1;
     await addDoc(hCollection(householdId, 'settlements'), {
       sequenceNumber: nextSeq,
-      createdAt: new Date().toISOString().slice(0, 10),
+      createdAt: todayLocal(),
       settledAt: '',
       debtorUser: b.debtor,
       creditorUser: b.creditor,
@@ -272,7 +298,7 @@ export default function App() {
 
   const handleMarkSettled = async (s) => {
     await updateDoc(hDoc(householdId, 'settlements', s.id), {
-      settledAt: new Date().toISOString().slice(0, 10),
+      settledAt: todayLocal(),
     });
   };
 

@@ -124,3 +124,14 @@ export function buildSplitEntries({ method, members, cost, amounts = {}, ratios 
 
 export const ntd = (n) =>
   '$' + Math.round(n || 0).toLocaleString('en-US');
+
+/**
+ * 今天的日期字串（本地時區）。
+ * ⚠️ 不可用 toISOString()——那是 UTC，台灣時間早上 8 點前會少算一天，
+ * 導致到期提醒比 iOS App（用本地 startOfDay 判斷）晚一天出現。
+ */
+export function todayLocal() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
