@@ -589,6 +589,7 @@ export default function App() {
       {showAdd && (
         <AddRecordModal
           initialType={typeof showAdd === 'string' ? showAdd : undefined}
+          initialDate={tab === 'records' ? selectedDay : ''}
           onClose={() => setShowAdd(false)}
           onSave={handleAdd}
           definedUsers={settings.definedUsers}

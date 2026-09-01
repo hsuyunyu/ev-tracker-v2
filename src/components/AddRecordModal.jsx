@@ -17,6 +17,19 @@ const nowLocal = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+/**
+ * 決定新記錄的預設日期。
+ * 從月曆選定某天後新增時帶入那天；時間沿用現在的時分，
+ * 讓同一天內新增的多筆記錄仍能依時間排序。
+ */
+const initialDateFor = (day) => {
+  if (!day) return nowLocal();
+  if (day.includes('T')) return day;
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${day}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const inputCls =
   'w-full border border-ww-line2 rounded-ww-inner px-3 py-2.5 text-sm text-ww-ink bg-ww-field ' +
   'placeholder:text-ww-faint focus:outline-none focus:border-ww-brand transition-colors';
@@ -160,7 +173,7 @@ function SplitSection({
 // ────────────────────────────────────────────────
 export default function AddRecordModal({
   onClose, onSave, definedUsers, defaultVehicleId, editItem, definedTypes,
-  settings = {}, vehicles = [], initialType,
+  settings = {}, vehicles = [], initialType, initialDate,
 }) {
   const typeOptions = resolveTypes(definedTypes);
   const members = definedUsers;
@@ -178,7 +191,7 @@ export default function AddRecordModal({
     expiryDate: editItem.expiryDate ?? '',
     vehicleId: editItem.vehicleId ?? defaultVehicleId,
   } : {
-    type: initialType ?? 'charging', date: nowLocal(), vendor: '', cost: '', kwh: '',
+    type: initialType ?? 'charging', date: initialDateFor(initialDate), vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '', mileage: '', note: '', expiryDate: '',
     vehicleId: defaultVehicleId,
   });
