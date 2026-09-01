@@ -160,7 +160,7 @@ function SplitSection({
 // ────────────────────────────────────────────────
 export default function AddRecordModal({
   onClose, onSave, definedUsers, defaultVehicleId, editItem, definedTypes,
-  settings = {}, vehicles = [],
+  settings = {}, vehicles = [], initialType,
 }) {
   const typeOptions = resolveTypes(definedTypes);
   const members = definedUsers;
@@ -178,7 +178,7 @@ export default function AddRecordModal({
     expiryDate: editItem.expiryDate ?? '',
     vehicleId: editItem.vehicleId ?? defaultVehicleId,
   } : {
-    type: 'charging', date: nowLocal(), vendor: '', cost: '', kwh: '',
+    type: initialType ?? 'charging', date: nowLocal(), vendor: '', cost: '', kwh: '',
     user: definedUsers[0] ?? '', mileage: '', note: '', expiryDate: '',
     vehicleId: defaultVehicleId,
   });

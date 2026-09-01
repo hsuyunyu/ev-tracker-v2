@@ -31,6 +31,8 @@ import SettingsPage from './components/SettingsPage';
 import SettlementPage from './components/SettlementPage';
 import MileagePage from './components/MileagePage';
 import BalanceBar from './components/BalanceBar';
+import HomePage from './components/HomePage';
+import MonthCalendar from './components/MonthCalendar';
 
 const DEFAULT_SETTINGS = {
   definedUsers: ['Rose', '1+'],
@@ -66,8 +68,14 @@ export default function App() {
   const [settlements, setSettlements] = useState([]);
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
 
-  const [tab,     setTab]     = useState('records');
-  const [subPage, setSubPage] = useState(null); // null | 'settlement' | 'mileage'
+  const [tab,     setTab]     = useState('home');
+  const [subPage, setSubPage] = useState(null); // null | 'settlement' | 'mileage' | 'recurring'
+
+  // 記錄頁月曆：顯示中的年月 + 選定日
+  const nowRef = new Date();
+  const [calYear,  setCalYear]  = useState(nowRef.getFullYear());
+  const [calMonth, setCalMonth] = useState(nowRef.getMonth() + 1);
+  const [selectedDay, setSelectedDay] = useState('');
   const [filters, setFilters] = useState({ type: 'all', user: 'all', month: '' });
   const [showAdd, setShowAdd] = useState(false);
   const [editingRecord,    setEditingRecord]    = useState(null);
@@ -183,8 +191,16 @@ export default function App() {
     })();
   }, [householdId, recurring, today]);
 
+  const calMonthStr = `${calYear}-${String(calMonth).padStart(2, '0')}`;
+  // 月曆上的記錄不受類型/成員篩選影響，只看顯示中的月份
+  const calendarRecords = records.filter(r => r.date?.startsWith(calMonthStr));
+
   const filteredRecords = records.filter(r => {
     if (filters.type !== 'all' && r.type !== filters.type) return false;
+    // 選了某一天就只看那天，否則看月曆顯示中的整個月
+    if (selectedDay) {
+      if (!r.date?.startsWith(selectedDay)) return false;
+    } else if (!r.date?.startsWith(calMonthStr)) return false;
     if (filters.month && !r.date?.startsWith(filters.month)) return false;
     // 成員篩選：主要支出人 OR 分攤參與者（含金額 > 0）
     if (filters.user !== 'all') {
@@ -423,6 +439,27 @@ export default function App() {
           />
         )}
 
+        {!subPage && tab === 'home' && (
+          <HomePage
+            records={records}
+            vehicles={vehicles}
+            mileageLogs={mileageLogs}
+            recurring={recurring}
+            dueItems={dueItems}
+            balance={balance}
+            settings={settings}
+            user={user}
+            defaultVehicleId={defaultVehicleId}
+            onOpenSettlement={() => setSubPage('settlement')}
+            onOpenRecurring={() => setSubPage('recurring')}
+            onOpenMileage={() => setSubPage('mileage')}
+            onOpenSettings={() => setTab('settings')}
+            onQuickAdd={typeId => setShowAdd(typeId)}
+            onOpenRecord={r => setEditingRecord(r)}
+            onSeeAllRecords={() => setTab('records')}
+          />
+        )}
+
         {!subPage && tab === 'records' && (
           <>
             {dueItems.length > 0 && (
@@ -440,6 +477,28 @@ export default function App() {
               onOpen={() => setSubPage('settlement')}
               onOpenMileage={() => setSubPage('mileage')}
             />
+
+            <div className="mt-3">
+              <MonthCalendar
+                records={calendarRecords}
+                year={calYear}
+                month={calMonth}
+                selectedDate={selectedDay}
+                onSelectDate={setSelectedDay}
+                onChangeMonth={(y, m) => { setCalYear(y); setCalMonth(m); setSelectedDay(''); }}
+              />
+            </div>
+
+            {selectedDay && (
+              <button
+                onClick={() => setSelectedDay('')}
+                className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                           bg-ww-brand text-white text-xs font-semibold"
+              >
+                {Number(selectedDay.slice(5, 7))}/{Number(selectedDay.slice(8, 10))} 的記錄
+                <span className="text-white/80">✕</span>
+              </button>
+            )}
 
             <FilterBar
               filters={filters}
@@ -463,14 +522,32 @@ export default function App() {
           </>
         )}
 
-        {!subPage && tab === 'recurring' && (
-          <RecurringList
-            items={recurring}
-            onDelete={handleDeleteRecurring}
-            onToggle={handleToggleRecurring}
-            onEdit={item => setEditingRecurring(item)}
-            definedTypes={settings.definedTypes}
-          />
+        {subPage === 'recurring' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => setSubPage(null)}
+                className="text-sm text-ww-brand font-semibold"
+              >
+                ‹ 返回
+              </button>
+              <h2 className="text-lg font-bold text-ww-ink">週期項目</h2>
+              <button
+                onClick={() => setShowAddRecurring(true)}
+                className="px-3 py-1.5 rounded-full bg-ww-brand hover:bg-ww-brandhover
+                           text-white text-xs font-semibold transition-colors"
+              >
+                + 新增
+              </button>
+            </div>
+            <RecurringList
+              items={recurring}
+              onDelete={handleDeleteRecurring}
+              onToggle={handleToggleRecurring}
+              onEdit={item => setEditingRecurring(item)}
+              definedTypes={settings.definedTypes}
+            />
+          </div>
         )}
 
         {!subPage && tab === 'analytics' && (
@@ -505,12 +582,13 @@ export default function App() {
           tab={tab}
           onChange={t => { setTab(t); setSubPage(null); }}
           dueCount={dueItems.length}
-          onAdd={() => (tab === 'recurring' ? setShowAddRecurring(true) : setShowAdd(true))}
+          onAdd={() => setShowAdd(true)}
         />
       )}
 
       {showAdd && (
         <AddRecordModal
+          initialType={typeof showAdd === 'string' ? showAdd : undefined}
           onClose={() => setShowAdd(false)}
           onSave={handleAdd}
           definedUsers={settings.definedUsers}

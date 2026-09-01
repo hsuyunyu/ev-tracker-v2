@@ -6,8 +6,8 @@ import { Plus } from 'lucide-react';
  * 底色填滿安全區，內容往上墊，避免文字被 home indicator 切到。
  */
 const TABS = [
+  { key: 'home',      mono: '覽', label: '總覽' },
   { key: 'records',   mono: '記', label: '記錄' },
-  { key: 'recurring', mono: '週', label: '週期' },
   { key: 'analytics', mono: '析', label: '分析' },
   { key: 'settings',  mono: '設', label: '設定' },
 ];
@@ -21,8 +21,8 @@ export default function TabBar({ tab, onChange, dueCount = 0, onAdd }) {
       <div className="relative bg-ww-barbg/95 backdrop-blur border-t border-ww-line ww-safe-bottom">
         <div className="max-w-4xl mx-auto flex items-end h-[54px]">
           {left.map(t => (
-            <TabButton key={t.key} {...t} active={tab === t.key}
-              badge={t.key === 'recurring' ? dueCount : 0}
+            <TabButton key={t.key} mono={t.mono} label={t.label} active={tab === t.key}
+              badge={t.key === 'home' ? dueCount : 0}
               onClick={() => onChange(t.key)} />
           ))}
 
@@ -30,7 +30,7 @@ export default function TabBar({ tab, onChange, dueCount = 0, onAdd }) {
           <div className="w-[74px] shrink-0" />
 
           {right.map(t => (
-            <TabButton key={t.key} {...t} active={tab === t.key}
+            <TabButton key={t.key} mono={t.mono} label={t.label} active={tab === t.key}
               badge={0} onClick={() => onChange(t.key)} />
           ))}
         </div>
