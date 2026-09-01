@@ -3,6 +3,7 @@ import { ArrowLeftRight, SquarePen, ChevronRight } from 'lucide-react';
 import { buildTypeMap, resolveTypes } from '../typeConfig';
 import { ntd } from '../split';
 import { normalizeDue } from '../recurring';
+import { displayMileage } from '../mileage';
 import BrandMark from './BrandMark';
 
 /**
@@ -13,13 +14,11 @@ import BrandMark from './BrandMark';
 
 const pad = (n) => String(n).padStart(2, '0');
 
-function greetingText() {
+function greetingText(name) {
   const h = new Date().getHours();
-  if (h < 5)  return '夜深了';
-  if (h < 11) return '早安';
-  if (h < 14) return '午安';
-  if (h < 18) return '午後好';
-  return '晚安';
+  // 時段用語與 iOS HomeView.greeting 一致
+  const g = h < 5 ? '夜深了' : h < 11 ? '早安' : h < 14 ? '午安' : h < 18 ? '下午好' : '晚安';
+  return name ? `${g}，${name}` : g;
 }
 
 const fmtInt = (v) => Math.round(v || 0).toLocaleString('en-US');
@@ -52,25 +51,17 @@ export default function HomePage({
   const recent = records.slice(0, 5);
 
   const vehicle = vehicles.find(v => v.id === defaultVehicleId) ?? vehicles[0];
-  const latestMileage = (() => {
-    const all = [
-      ...mileageLogs.filter(m => !vehicle || m.vehicleId === vehicle.id),
-      ...records.filter(r => r.mileage && (!vehicle || r.vehicleId === vehicle.id))
-        .map(r => ({ date: r.date, mileage: r.mileage })),
-    ].filter(m => m.mileage !== '' && m.mileage != null);
-    if (all.length === 0) return '—';
-    all.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    return Number(all[0].mileage).toLocaleString('en-US');
-  })();
+  const latestMileage = displayMileage(records, mileageLogs, vehicle?.id, defaultVehicleId);
 
-  const initial = (user?.displayName || settings.definedUsers?.[0] || '?').trim().charAt(0).toUpperCase();
+  const displayName = user?.displayName || settings.definedUsers?.[0] || '';
+  const initial = (displayName || '?').trim().charAt(0).toUpperCase();
 
   return (
     <div className="pb-2">
       {/* 頁首 */}
       <div className="flex items-start justify-between px-0.5">
         <div>
-          <p className="text-[13px] font-medium text-ww-sub">{greetingText()}</p>
+          <p className="text-[13px] font-medium text-ww-sub">{greetingText(displayName)}</p>
           <div className="flex items-center gap-2.5 mt-0.5">
             <button onClick={() => setMonthOffset(o => o - 1)}
               className="text-ww-faint hover:text-ww-ink text-lg font-bold leading-none px-1">‹</button>
@@ -154,9 +145,11 @@ export default function HomePage({
             <span className="block text-[15px] font-bold text-white truncate">
               {vehicle.name || vehicle.licensePlate || '車輛'}
             </span>
-            <span className="block text-xs font-medium text-[#B6AE9E] truncate">
-              {vehicle.licensePlate || ''}
-            </span>
+            {vehicle.licensePlate && (
+              <span className="block text-xs font-medium text-[#B6AE9E] truncate">
+                {vehicle.licensePlate}
+              </span>
+            )}
           </span>
           <span className="relative ml-auto text-right shrink-0">
             <span className="flex items-center justify-end gap-1.5">

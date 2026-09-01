@@ -1,18 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Trash2, Gauge } from 'lucide-react';
 import { PageHeader } from './SettlementPage';
+import { mileageValue } from '../mileage';
 
 const nowLocal = () => {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-
-/** 里程數值解析：容忍千分位與單位（"23,400 km" → 23400） */
-const mileageValue = (raw) => {
-  const cleaned = String(raw ?? '').replace(/[^\d.]/g, '');
-  const v = parseFloat(cleaned);
-  return Number.isFinite(v) && v > 0 ? Math.round(v) : null;
 };
 
 /**
@@ -27,6 +21,12 @@ export default function MileagePage({
   const [date,      setDate]      = useState(nowLocal());
   const [note,      setNote]      = useState('');
   const [saving,    setSaving]    = useState(false);
+
+  // 與 mileage.js 相同的排序鍵：沒有時間的當作當天 00:00
+  const sortKey = (d) => {
+    const str = String(d ?? '');
+    return `${str.slice(0, 10)}T${str.length > 10 ? str.slice(11, 16) : '00:00'}`;
+  };
 
   const vehicleName = (id) =>
     vehicles.find(v => v.id === id)?.name ||
@@ -48,7 +48,7 @@ export default function MileagePage({
         date: r.date, note: r.vendor || '費用記錄',
       }));
     return [...fromLogs, ...fromRecords]
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
+      .sort((a, b) => sortKey(b.date).localeCompare(sortKey(a.date)));
   }, [logs, records]);
 
   const latest = merged[0]?.mileage;
