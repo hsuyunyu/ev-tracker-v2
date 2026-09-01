@@ -128,7 +128,14 @@ export default function App() {
         setRecords(data);
       }),
       onSnapshot(hCollection(householdId, 'vehicles'), snap => {
-        setVehicles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // ⚠️ 必須與 iOS 看到的車輛清單一致。
+        // iOS 的 Vehicle 用合成 Codable，name / licensePlate 皆為必填，
+        // 缺欄位的舊文件會解碼失敗而被 compactMap 丟棄；網頁若照單全收，
+        // 兩邊的「第一台車」就會不同，首頁車輛卡的車牌與里程因此對不上。
+        const usable = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(v => typeof v.name === 'string' && typeof v.licensePlate === 'string');
+        setVehicles(usable);
       }),
       onSnapshot(hCollection(householdId, 'recurring'), snap => {
         setRecurring(snap.docs.map(d => ({ id: d.id, ...d.data() })));
