@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { signInWithGoogle, getRedirectResult, auth, isIOS, isStandalone } from '../firebase';
+import {
+  signInWithGoogle, getRedirectResult, auth, isIOS, isStandalone, AUTH_HOSTS, PRIMARY_HOST,
+} from '../firebase';
 import { LeafBadge } from './BrandMark';
-
-const HOST_OK = 'ev-tracker-119e6.firebaseapp.com';
 
 const FEATURES = [
   { badge: '充', color: '#4E7BB5', title: '記錄每一筆用車花費', desc: '充電、過路費、保養、保險一次管理' },
@@ -24,7 +24,7 @@ export default function Login({ onDemo }) {
   // 手機開在非 authDomain 的網域時，Safari 會擋跨網域登入儲存 → 導致 Google 400
   const wrongHost =
     (isIOS() || isStandalone()) &&
-    location.hostname !== HOST_OK &&
+    !AUTH_HOSTS.includes(location.hostname) &&
     location.hostname !== 'localhost';
 
   const handleGoogle = async () => {
@@ -87,7 +87,7 @@ export default function Login({ onDemo }) {
               <p className="text-[13px] text-ww-ink2 leading-relaxed mb-3">
                 iPhone 上請改用下面這個網址登入，否則 Safari 會擋住 Google 登入。
               </p>
-              <a href={`https://${HOST_OK}/`}
+              <a href={`https://${PRIMARY_HOST}/`}
                 className="block w-full text-center bg-[#211D17] text-white py-3.5 rounded-ww-inner
                            text-[14px] font-semibold">
                 前往正確網址
