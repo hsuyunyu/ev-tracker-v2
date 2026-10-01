@@ -53,13 +53,52 @@
     color-scheme: dark;
   }
 
+  html {
+    /* 與 iOS 相同：系統字（SF Pro + 苹方） */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC",
+                 "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-ww-bg text-ww-ink;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
   }
 
-  /* 加到主畫面（standalone PWA）時，頂列與底列自行避開瀏海／home indicator，
-     底列預留空間避免文字被切到（與 iOS 端 WattTabBar 同樣處理）。 */
+  /* 按鈕與輸入框不要有瀏覽器預設外觀，讓版面與 App 一致 */
+  button { -webkit-appearance: none; appearance: none; }
+  input, select, textarea { font: inherit; color: inherit; }
+  input::placeholder { color: rgb(var(--ww-faint)); }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type='number'] { -moz-appearance: textfield; }
+}
+
+@layer utilities {
+  /* 加到主畫面（standalone PWA）時避開瀏海／home indicator */
   .ww-safe-top    { padding-top: env(safe-area-inset-top); }
   .ww-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* 橫向捲動列（類型 chips、快速記一筆）隱藏捲軸，與 iOS showsIndicators: false 相同 */
+  .ww-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+  .ww-noscroll::-webkit-scrollbar { display: none; }
+
+  /* 欄位卡內靠右對齊的純文字輸入 */
+  .ww-plain-input {
+    @apply w-full min-w-0 bg-transparent text-right text-[14px] font-semibold text-ww-ink outline-none;
+  }
+}
+
+/* 底部 sheet 進場（對應 iOS .sheet 的上滑） */
+@keyframes ww-sheet-up   { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes ww-fade-in    { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ww-spin       { to { transform: rotate(360deg); } }
+.ww-sheet-panel    { animation: ww-sheet-up .32s cubic-bezier(.2, .8, .2, 1); }
+.ww-sheet-backdrop { animation: ww-fade-in .2s ease-out; }
+.ww-spin           { animation: ww-spin 1.1s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ww-sheet-panel, .ww-sheet-backdrop { animation: none; }
 }

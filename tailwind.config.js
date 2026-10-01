@@ -49,6 +49,14 @@ export default {
         'ww-inner': '14px',
         'ww-sheet': '30px',
       },
+      fontFamily: {
+        // 對應 SwiftUI 的 .system(design: .rounded)；非 Apple 裝置退回系統字
+        rounded: ['ui-rounded', '"SF Pro Rounded"', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      maxWidth: {
+        // App 版面的欄寬：手機滿版，桌機置中成一欄
+        app: '520px',
+      },
     },
   },
   plugins: [],
