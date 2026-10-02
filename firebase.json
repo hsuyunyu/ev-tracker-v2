@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "wattwise",
     "public": "dist",
     "ignore": [
       "firebase.json",

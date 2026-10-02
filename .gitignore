@@ -22,3 +22,7 @@ dist-ssr
 
 # Firebase
 .firebase/
+
+# 搬遷用的暫存檔：含使用者個資與金鑰，不可進版控
+migration/
+*-service-account*.json

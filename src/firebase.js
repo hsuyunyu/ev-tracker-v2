@@ -5,16 +5,29 @@ import {
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+/** 主要網址（手機請用這個） */
+export const PRIMARY_HOST = 'wattwise.web.app';
+
+const DEFAULT_AUTH_DOMAIN = 'wattwise-rose.firebaseapp.com';
+
+/**
+ * 可以當 authDomain 的網域。authDomain 必須與目前網址相同，iOS Safari 才不會擋跨網域的
+ * 登入儲存（否則 Google 回 400）。
+ * ⚠️ 清單裡的每個網域都必須先完成兩件事，否則會 redirect_uri_mismatch：
+ *   1. Firebase Console → Authentication → 設定 → 已授權網域 有該網域
+ *   2. Google Cloud Console 的 OAuth 網頁用戶端加入 https://<網域>/__/auth/handler
+ */
+export const AUTH_HOSTS = [PRIMARY_HOST, DEFAULT_AUTH_DOMAIN];
+
 const firebaseConfig = {
-  apiKey: "AIzaSyBFiHBJv0JJPIN9_zLM6hx4s80ldYuN_SU",
-  // ⚠️ 目前只有 firebaseapp.com 這個網域被 Google OAuth 授權為 redirect_uri。
-  // 若日後要改成 ev-tracker-119e6.web.app，必須先到 Google Cloud Console 的
-  // OAuth 用戶端加入 https://ev-tracker-119e6.web.app/__/auth/handler，否則會 redirect_uri_mismatch。
-  authDomain: "ev-tracker-119e6.firebaseapp.com",
-  projectId: "ev-tracker-119e6",
-  storageBucket: "ev-tracker-119e6.firebasestorage.app",
-  messagingSenderId: "434539249476",
-  appId: "1:434539249476:web:4e3c4e53b3ec4b0766e111",
+  apiKey: "AIzaSyCGSa2etiRWK7jECJZUUyosEqbJDOhzvAM",
+  authDomain: AUTH_HOSTS.includes(window.location.hostname)
+    ? window.location.hostname
+    : DEFAULT_AUTH_DOMAIN,
+  projectId: "wattwise-rose",
+  storageBucket: "wattwise-rose.firebasestorage.app",
+  messagingSenderId: "358950751245",
+  appId: "1:358950751245:web:1346b686eb4ad158fc5944",
 };
 
 const app = initializeApp(firebaseConfig);
