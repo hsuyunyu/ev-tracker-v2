@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "ev-tracker-119e6"
+  },
+  "targets": {
+    "ev-tracker-119e6": {
+      "hosting": {
+        "wattwise": [
+          "wattwise"
+        ],
+        "main": [
+          "ev-tracker-119e6"
+        ]
+      }
+    }
   }
 }
