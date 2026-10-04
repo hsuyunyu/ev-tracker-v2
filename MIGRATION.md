@@ -19,7 +19,8 @@
   - 網頁：已部署到 `wattwise.web.app`，實測登入、數字、新增刪除都正常。
   - iOS：已實機驗證登入與帳本。切換時另外踩到 `Info.plist` 的 `GIDClientID` 還是舊用戶端，
     點登入就閃退，已修正（iOS repo `2a8ae81`）。
-- 階段 4 尚未開始。在完成前，**舊網址與舊版 App 仍連著舊專案**，在那邊記的帳不會出現在新專案。
+- 階段 4（2026-10-04）：舊網址已 302 轉到 `wattwise.web.app`；舊專案 Firestore 規則已改為前端全面拒絕
+  （`legacy/` 部署）。鎖定前確認舊專案帳本只有 `updatedAt` 時間戳記變動，內容沒有分岔。
 - ⚠️ **舊專案還不能停用**：root 集合 `stock-prices` 在 2026-10-02 仍有寫入，表示有 WattWise
   以外的程式在用 `ev-tracker-119e6`。要先弄清楚是誰、搬去哪，才能做階段 4 的最後一步。
 - 舊專案另有已廢棄的 root 集合（`records`、`vehicles`、`recurring`、`settings`、`trips`、
@@ -114,8 +115,8 @@ npm run build && firebase deploy --only hosting --project wattwise-rose
 
 ## 階段 4：收尾
 
-- [ ] 舊網址改成導向新網址（在 `main` 之外另外部署一個只有轉址的頁面到 `ev-tracker-119e6`）。
-- [ ] 鎖住舊專案的 Firestore（規則改成全部拒絕），避免有人用舊版 App 繼續寫入。
+- [x] 舊網址改成導向新網址（`legacy/` 部署到 `ev-tracker-119e6`）。
+- [x] 鎖住舊專案的 Firestore（規則改成全部拒絕），避免有人用舊版 App 繼續寫入。
 - [ ] 觀察至少兩週，確認沒有人還在用舊專案。
 - [ ] 刪除 `migration/` 與本機的匯出檔。
 - [ ] 確認 `stock-prices` 等非 WattWise 的使用者已搬走（見上方「進度」）。
