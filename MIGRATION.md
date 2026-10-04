@@ -2,8 +2,7 @@
 
 目標：帳號、資料、網頁、iOS App 全部搬到新專案 `wattwise-rose`，最後停用 `ev-tracker-119e6`。
 
-這個分支（`migrate/wattwise-rose`）的網頁設定已指向新專案，**切換當天才合併回 main 並部署**。
-在那之前線上仍由 `main` 提供、連舊專案，不受影響。
+**2026-10-04 已完成切換**：網頁與 iOS App 都已改連新專案，`main` 即為新專案的版本。
 
 | | 舊 | 新 |
 |---|---|---|
@@ -12,10 +11,15 @@
 | Hosting site | `ev-tracker-119e6` | `wattwise` |
 | iOS Bundle ID | `com.rosehsu.EVTracker` | `com.rosehsu.WattWise` |
 
-## 進度（2026-10-03）
+## 進度（2026-10-04）
 
-- 階段 1、2 已完成。排練複製了 160 份文件，`--verify` 顯示兩邊一致。
-- 新專案的 iOS 設定檔已下載到 `~/Downloads/GoogleService-Info.plist`，尚未放進 Xcode 專案。
+- 階段 1～3 已完成：
+  - 帳號：只搬了 2 個 Google 帳號（uid 不變）；舊專案另有 20 個匿名帳號（最後登入 2026-01），未搬。
+  - 資料：160 份文件，`--verify` 兩邊一致。
+  - 網頁：已部署到 `wattwise.web.app`，實測登入、數字、新增刪除都正常。
+  - iOS：已實機驗證登入與帳本。切換時另外踩到 `Info.plist` 的 `GIDClientID` 還是舊用戶端，
+    點登入就閃退，已修正（iOS repo `2a8ae81`）。
+- 階段 4 尚未開始。在完成前，**舊網址與舊版 App 仍連著舊專案**，在那邊記的帳不會出現在新專案。
 - ⚠️ **舊專案還不能停用**：root 集合 `stock-prices` 在 2026-10-02 仍有寫入，表示有 WattWise
   以外的程式在用 `ev-tracker-119e6`。要先弄清楚是誰、搬去哪，才能做階段 4 的最後一步。
 - 舊專案另有已廢棄的 root 集合（`records`、`vehicles`、`recurring`、`settings`、`trips`、
@@ -27,7 +31,7 @@
 
 - [x] **Firestore**：`asia-east1`、Standard、原生模式，與舊專案相同。
 - [x] **Authentication**：啟用 Google 登入。
-- [x] **OAuth 重新導向網址**（已操作，尚未實測登入）：Google Cloud Console → API 和服務 → 憑證 → 網頁用戶端，
+- [x] **OAuth 重新導向網址**（已實測登入）：Google Cloud Console → API 和服務 → 憑證 → 網頁用戶端，
       「已授權的重新導向 URI」加入 `https://wattwise.web.app/__/auth/handler`。
       少了這步，手機登入會 `redirect_uri_mismatch`（舊專案的 web.app 就是卡在這裡）。
 - [x] **已授權網域**：已加入 `wattwise.web.app`。
@@ -62,7 +66,7 @@ npm run migrate -- --write
 npm run migrate -- --verify
 ```
 
-## 階段 3：切換（挑一個沒人記帳的時段，一次做完）
+## 階段 3：切換（2026-10-04 已完成）
 
 從這裡開始，**所有人先不要用 App 和網頁記帳**，直到階段 3 結束。
 兩邊同時寫入會讓資料分岔，之後無法自動合併。
