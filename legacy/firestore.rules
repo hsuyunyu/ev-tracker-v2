@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// 舊專案 ev-tracker-119e6 已停止使用（2026-10-04 搬到 wattwise-rose）。
+// 前端一律不能讀寫，避免舊版 App 或舊網址繼續寫入，造成新舊帳本分岔。
+// 用管理者權限（Admin SDK / 服務帳戶）存取的程式不受這份規則影響。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

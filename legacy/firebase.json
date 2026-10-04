@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "public": "public",
+    "redirects": [
+      {
+        "source": "**",
+        "destination": "https://wattwise.web.app/",
+        "type": 302
+      }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
