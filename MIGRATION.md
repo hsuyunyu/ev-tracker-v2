@@ -21,8 +21,11 @@
     點登入就閃退，已修正（iOS repo `2a8ae81`）。
 - 階段 4（2026-10-04）：舊網址已 302 轉到 `wattwise.web.app`；舊專案 Firestore 規則已改為前端全面拒絕
   （`legacy/` 部署）。鎖定前確認舊專案帳本只有 `updatedAt` 時間戳記變動，內容沒有分岔。
-- ⚠️ **舊專案還不能停用**：root 集合 `stock-prices` 在 2026-10-02 仍有寫入，表示有 WattWise
-  以外的程式在用 `ev-tracker-119e6`。要先弄清楚是誰、搬去哪，才能做階段 4 的最後一步。
+- `stock-prices` / `stock-report` 是台股 LINE 群組報告網站（`stock-report-app`）在用，與 WattWise 共用舊專案。
+  使用者決定不要了，2026-10-05 已清除：排程、Cloud Run 工作 `update-stock-prices`、服務 `price-service`、
+  Artifact Registry `stock-prices`、兩把服務帳戶金鑰；本機資料夾與 `analyze-line` skill 移到垃圾桶。
+  誤搬到新專案的自選股文件 `users/{uid}/data/watchlist` 也已刪除。
+- **下一步：觀察到 2026-10-18，沒問題就停用 `ev-tracker-119e6`。**
 - 舊專案另有已廢棄的 root 集合（`records`、`vehicles`、`recurring`、`settings`、`trips`、
   `artifacts`、`stock-report`），預設不搬；是否用 `--all` 留底尚未決定。
 
@@ -117,9 +120,9 @@ npm run build && firebase deploy --only hosting --project wattwise-rose
 
 - [x] 舊網址改成導向新網址（`legacy/` 部署到 `ev-tracker-119e6`）。
 - [x] 鎖住舊專案的 Firestore（規則改成全部拒絕），避免有人用舊版 App 繼續寫入。
-- [ ] 觀察至少兩週，確認沒有人還在用舊專案。
+- [ ] 觀察至少兩週（到 2026-10-18），確認沒有人還在用舊專案。
 - [ ] 刪除 `migration/` 與本機的匯出檔。
-- [ ] 確認 `stock-prices` 等非 WattWise 的使用者已搬走（見上方「進度」）。
+- [x] 確認 `stock-prices` 等非 WattWise 的使用者已處理（2026-10-05 已清除，見上方「進度」）。
 - [ ] 停用 `ev-tracker-119e6`。專案刪除後 30 天內還能還原，之後無法復原。
 
 ## 退回方式
