@@ -325,7 +325,7 @@ export default function App() {
       <input ref={importInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
 
       <main className="max-w-app mx-auto px-[22px] pt-[env(safe-area-inset-top)]
-                       pb-[calc(111px+env(safe-area-inset-bottom))]">
+                       pb-[calc(96px+env(safe-area-inset-bottom))]">
         {tab === 'home' && (
           <HomePage
             records={records} vehicles={vehicles} mileageLogs={mileageLogs}
