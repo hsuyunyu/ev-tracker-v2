@@ -28,6 +28,7 @@ export default function SettlementSheet({
   const selectedRecords = open.filter(r => selected.has(r.id));
   const balance = calcBalance(selectedRecords, settings.definedUsers);
   const amount  = balance?.amount ?? 0;
+  const splitTotal = selectedRecords.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
   const nextSeq = Math.max(0, ...settlements.map(s => s.sequenceNumber || 0)) + 1;
 
   const allIds   = open.map(r => r.id);
@@ -88,6 +89,12 @@ export default function SettlementSheet({
           </div>
           <div className="mt-[3px] text-[13px] text-[#B6AE9E]">
             {amount > 0 ? `${balance.debtor} 還需付給 ${balance.creditor} NT$${fmtInt(amount)}` : '已全部結清'}
+          </div>
+          <div className="mt-4 pt-3 border-t border-white/10 flex items-baseline justify-between">
+            <span className="text-[12px] text-[#B6AE9E]">需分攤的總花費（{selectedRecords.length} 筆）</span>
+            <span className="text-[16px] font-extrabold font-rounded text-white tabular-nums">
+              NT${fmtInt(splitTotal)}
+            </span>
           </div>
           {pending && (
             <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#D8D1C2]">
