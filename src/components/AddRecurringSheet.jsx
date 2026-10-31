@@ -89,8 +89,8 @@ export default function AddRecurringSheet({
       />
 
       <div className="px-[22px] pt-2 pb-[calc(28px+env(safe-area-inset-bottom))] flex flex-col gap-[18px]">
-        {/* 類型 chips */}
-        <div className="ww-noscroll flex gap-2 overflow-x-auto px-0.5 -mx-0.5">
+        {/* 類型 chips：換行排列，不做橫向捲動（手機上左右滑的手感很怪） */}
+        <div className="flex flex-wrap gap-2">
           {types.map(t => {
             const active = form.type === t.id;
             return (
@@ -176,7 +176,7 @@ export default function AddRecurringSheet({
                     className="text-[16px] font-bold text-ww-faint px-1">›</button>
                 </div>
               </div>
-              <div className="ww-noscroll flex gap-1.5 overflow-x-auto">
+              <div className="flex flex-wrap gap-1.5">
                 <QuickChip onClick={() => shiftDue({ months: 1 })}>+1 個月</QuickChip>
                 <QuickChip onClick={() => shiftDue({ months: 3 })}>+3 個月</QuickChip>
                 <QuickChip onClick={() => shiftDue({ months: 12 })}>+1 年</QuickChip>

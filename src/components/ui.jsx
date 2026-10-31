@@ -43,7 +43,8 @@ export function Sheet({ onClose, children, footer, tall = false }) {
                     rounded-t-ww-sheet sm:rounded-ww-sheet shadow-2xl
                     max-h-[94dvh] sm:max-h-[88vh] ${tall ? 'h-[94dvh] sm:h-[88vh]' : ''}`}
       >
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</div>
+        {/* 只能上下捲：overflow-y 設成 auto 時瀏覽器會把 x 也變成 auto，內容稍微超出就整片能左右晃，手機上很明顯 */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y">{children}</div>
         {footer}
       </div>
     </div>

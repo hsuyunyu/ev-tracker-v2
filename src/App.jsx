@@ -132,6 +132,16 @@ export default function App() {
     return Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
   }, [records]);
 
+  /** 以前打過的備註，新的在前（新增記錄的備註建議用） */
+  const pastNotes = useMemo(() => {
+    const seen = [];
+    for (const r of [...records].sort((a, b) => String(b.date).localeCompare(String(a.date)))) {
+      const n = (r.note ?? '').trim();
+      if (n && !seen.includes(n)) seen.push(n);
+    }
+    return seen;
+  }, [records]);
+
   // MARK: - 自動記帳
 
   // 開啟 autoRecord 的項目到期後自動補記（含補記過去漏掉的期數）。
@@ -440,14 +450,14 @@ export default function App() {
 
       {addRecord && (
         <AddRecordSheet
-          record={addRecord} settings={settings} vehicles={vehicles} pastVendors={pastVendors}
+          record={addRecord} settings={settings} vehicles={vehicles} pastVendors={pastVendors} pastNotes={pastNotes}
           onClose={() => setAddRecord(null)} onSave={handleAdd}
         />
       )}
 
       {editRecord && (
         <AddRecordSheet
-          record={editRecord} isEditing settings={settings} vehicles={vehicles} pastVendors={pastVendors}
+          record={editRecord} isEditing settings={settings} vehicles={vehicles} pastVendors={pastVendors} pastNotes={pastNotes}
           onClose={() => setEditRecord(null)} onSave={handleEditRecord}
         />
       )}
