@@ -16,6 +16,8 @@ import HomePage from './components/HomePage';
 import RecordsPage from './components/RecordsPage';
 import AnalyticsPage from './components/AnalyticsPage';
 import SettingsPage from './components/SettingsPage';
+import AssistantSheet from './components/AssistantSheet';
+import { demoAssistant, firestoreAssistant } from './assistant';
 import AddRecordSheet from './components/AddRecordSheet';
 import RecordDetailSheet from './components/RecordDetailSheet';
 import SettlementSheet from './components/SettlementSheet';
@@ -44,8 +46,12 @@ export default function App() {
   const [retryKey, setRetryKey] = useState(0);
 
   const {
-    records, vehicles, recurring, mileageLogs, settlements, settings, inviteCode, api,
+    records, vehicles, recurring, mileageLogs, settlements, settings, inviteCode, ownerUid, api,
   } = useLedger(householdId, demo);
+  // WattWise 助理：只有帳本擁有者能用（規則也擋）；Demo 模式是假的助理。
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const assistant = useMemo(() => (demo ? demoAssistant() : householdId && user ? firestoreAssistant(householdId, user.uid) : null),
+    [demo, householdId, user]);
 
   const [tab, setTab]     = useState('home');
   const [sheet, setSheet] = useState(null);   // null | 'settlement' | 'mileage' | 'recurring'
@@ -345,6 +351,7 @@ export default function App() {
             onOpenRecurring={() => setSheet('recurring')}
             onOpenMileage={() => setSheet('mileage')}
             onOpenSettings={() => changeTab('settings')}
+            onOpenAssistant={() => setAssistantOpen(true)}
             onQuickAdd={typeId => setAddRecord(emptyRecord(typeId))}
             onOpenRecord={r => setDetailId(r.id)}
             onSeeAllRecords={() => changeTab('records')}
@@ -393,6 +400,10 @@ export default function App() {
         // 只有在記錄頁才沿用月曆選定的日期
         onAdd={() => setAddRecord(emptyRecord(undefined, tab === 'records' ? selectedDay : ''))}
       />
+
+      {assistantOpen && assistant && (
+        <AssistantSheet assistant={assistant} allowed={demo || ownerUid === user?.uid} onClose={() => setAssistantOpen(false)} />
+      )}
 
       {/* Sheets（對應 iOS 的 .sheet） */}
 

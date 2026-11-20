@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
 
 const EMPTY = {
   records: [], vehicles: [], recurring: [], mileageLogs: [], settlements: [],
-  settings: DEFAULT_SETTINGS, inviteCode: '',
+  settings: DEFAULT_SETTINGS, inviteCode: '', ownerUid: null,
 };
 
 const byDateDesc = (a, b) => String(b.date || '').localeCompare(String(a.date || ''));
@@ -114,7 +114,7 @@ export function useLedger(householdId, demo) {
       }),
       // 邀請碼存在 household 文件本身（對應 iOS householdInviteCode）
       onSnapshot(householdDoc(householdId),
-        snap => setState(s => ({ ...s, inviteCode: snap.data()?.inviteCode || '' })),
+        snap => setState(s => ({ ...s, inviteCode: snap.data()?.inviteCode || '', ownerUid: snap.data()?.ownerUid ?? null })),
         () => {}),
     ];
     return () => subs.forEach(un => un());

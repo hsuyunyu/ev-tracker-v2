@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, SquarePen } from 'lucide-react';
+import { ArrowLeftRight, MessageCircle, SquarePen } from 'lucide-react';
 import { buildTypeMap, resolveTypes } from '../typeConfig';
 import { normalizeDue } from '../recurring';
 import { displayMileage } from '../mileage';
@@ -23,7 +23,7 @@ function greetingText(name) {
 export default function HomePage({
   records, vehicles, mileageLogs, dueItems, balance, settings,
   displayName, defaultVehicleId,
-  onOpenSettlement, onOpenRecurring, onOpenMileage, onOpenSettings,
+  onOpenSettlement, onOpenRecurring, onOpenMileage, onOpenSettings, onOpenAssistant,
   onQuickAdd, onOpenRecord, onSeeAllRecords,
 }) {
   const [monthOffset, setMonthOffset] = useState(0);
@@ -70,9 +70,16 @@ export default function HomePage({
               }`}>›</button>
           </div>
         </div>
-        <button onClick={onOpenSettings} aria-label="設定">
-          <DarkAvatar initial={initial} />
-        </button>
+        <div className="flex items-center gap-2.5">
+          {/* WattWise 助理：和記帳 agent 對話（AssistantSheet.jsx） */}
+          <button onClick={onOpenAssistant} aria-label="WattWise 助理"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-ww-greenbg text-ww-brand">
+            <MessageCircle size={21} />
+          </button>
+          <button onClick={onOpenSettings} aria-label="設定">
+            <DarkAvatar initial={initial} />
+          </button>
+        </div>
       </div>
 
       {/* 本月支出大綠卡 */}
